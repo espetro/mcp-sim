@@ -11,29 +11,29 @@ import (
 // level: debug|info|warn|error (default info)
 // format: text|json (default text)
 func New(level, format string) *slog.Logger {
-	var handler slog.Handler
-	var opts slog.HandlerOptions
-
-	switch format {
-	case "json":
-		handler = slog.NewJSONHandler(os.Stderr, &opts)
-	default:
-		handler = slog.NewTextHandler(os.Stderr, &opts)
-	}
-
-	logger := slog.New(handler)
+	var slogLevel slog.Level
 	switch level {
 	case "debug":
-		logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		slogLevel = slog.LevelDebug
 	case "warn":
-		logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
+		slogLevel = slog.LevelWarn
 	case "error":
-		logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+		slogLevel = slog.LevelError
 	default:
-		logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+		slogLevel = slog.LevelInfo
 	}
 
-	return logger
+	opts := &slog.HandlerOptions{Level: slogLevel}
+
+	var handler slog.Handler
+	switch format {
+	case "json":
+		handler = slog.NewJSONHandler(os.Stderr, opts)
+	default:
+		handler = slog.NewTextHandler(os.Stderr, opts)
+	}
+
+	return slog.New(handler)
 }
 
 // LoggerFromContext returns the logger stored in context, or a no-op logger.
