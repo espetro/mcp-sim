@@ -23,6 +23,8 @@ type Device struct {
 	State    DeviceState `json:"state"`
 	// OS version if known
 	Version string `json:"version,omitempty"`
+	// OwnerSession is the session_id that currently reserves this device.
+	OwnerSession string `json:"owner_session,omitempty"`
 }
 
 // StartOpts controls how a device is started.
@@ -52,5 +54,6 @@ const (
 	ErrTimeout               = "timeout"
 	ErrUnsupportedPlatform   = "unsupported_platform"
 	ErrUnsupportedController = "unsupported_controller"
+	ErrDeviceReserved        = "device_reserved"
 	ErrInternal              = "internal"
 )
