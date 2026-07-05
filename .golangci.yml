@@ -1,0 +1,38 @@
+version: 2
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - copyloopvar
+    - errname
+    - gosec
+    - noctx
+    - dupl
+    - whitespace
+  exclusions:
+    rules:
+      - linters:
+          - gosec
+        text: "G204|G304"
+      - linters:
+          - errcheck
+        text: "fmt.Fprintln"
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+  govet:
+    enable-all: true
+  gosec:
+    checks: []
+    exclude: G104,G703
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0

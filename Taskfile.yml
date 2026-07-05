@@ -1,0 +1,66 @@
+version: '3'
+
+vars:
+  GO_VERSION:
+    sh: grep '^go ' go.mod | awk '{print $2}'
+
+env:
+  GOTOOLCHAIN: go{{.GO_VERSION}}
+  CGO_ENABLED: '0'
+
+tasks:
+  default:
+    cmds:
+      - task: --list
+
+  build:
+    desc: Compile mcp-sim
+    cmds:
+      - go build -ldflags="-s -w" -o bin/mcp-sim ./cmd/mcp-sim
+
+  test:
+    desc: Run unit tests with race detector
+    cmds:
+      - go test -race -cover ./...
+
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - golangci-lint run --timeout=5m
+
+  tidy:
+    desc: Tidy go modules
+    cmds:
+      - go mod tidy
+
+  validate:
+    desc: Typecheck + lint + test (AI-agent parseable)
+    run: when_changed
+    cmds:
+      - |
+        go build ./... \
+          && echo "[OK] typecheck" \
+          || { echo "[FAIL] typecheck"; exit 1; }
+      - |
+        golangci-lint run --timeout=5m \
+          && echo "[OK] lint" \
+          || { echo "[FAIL] lint"; exit 1; }
+      - |
+        go test ./... \
+          && echo "[OK] test" \
+          || { echo "[FAIL] test"; exit 1; }
+
+  run:
+    desc: Run mcp-sim in dev mode
+    cmds:
+      - go run ./cmd/mcp-sim serve {{.CLI_ARGS}}
+
+  release:
+    desc: Cut a release via GoReleaser
+    cmds:
+      - goreleaser release --clean
+
+  release-dry:
+    desc: Dry-run release locally
+    cmds:
+      - goreleaser release --clean --skip publish --skip announce
