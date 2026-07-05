@@ -1,0 +1,67 @@
+version: 2
+
+env:
+  - CGO_ENABLED=0
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: mcp-sim
+    main: ./cmd/mcp-sim
+    binary: mcp-sim
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+
+archives:
+  - id: default
+    format: zip
+    format_overrides:
+      - goos: linux
+        format: tar.gz
+    files:
+      - LICENSE
+
+checksum:
+  name_template: 'mcp-sim_{{.Version}}_checksums.txt'
+
+release:
+  github:
+    owner: espetro
+    name: mcp-sim
+  draft: true
+
+homepage: https://github.com/espetro/mcp-sim
+
+announcers:
+  output: |
+    {{ if .Env.GITHUB_TOKEN }}
+    {{ .VcsTag }} released! {{ .ReleaseURL }}
+    {{ end }}
+
+# Homebrew tap (requires TAP_GITHUB_TOKEN secret with repo scope on espetro/homebrew-mcp-sim)
+brews:
+  - id: mcp-sim
+    repository:
+      owner: espetro
+      name: homebrew-mcp-sim
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    commit_msg_template: 'ci: bump mcp-sim to {{ .Version }}'
+    folder: Formula
+    name: mcp-sim
+    aliases:
+      - mcp-sim
+    test: |
+      system "#{bin}/mcp-sim version"
+    install: |
+      bin.install "mcp-sim"
