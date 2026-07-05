@@ -68,3 +68,8 @@ brews:
       system "#{bin}/mcp-sim version"
     install: |
       bin.install "mcp-sim"
+    service: |
+      run [opt_bin/"mcp-sim", "serve", "--listen", ":9090"]
+      keep_alive true
+      log_path var/"log/mcp-sim.log"
+      error_log_path var/"log/mcp-sim.log"
