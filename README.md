@@ -14,9 +14,11 @@ For full functionality on macOS, install:
 |------|---|---|
 | Xcode + iOS Simulators | iOS tools | `xcode-select --install` (or App Store → Xcode) |
 | Android SDK + `emulator` + `adb` | Android tools | Install [Android Studio](https://developer.android.com/studio) or `brew install --cask android-commandlinetools` |
-| `agent-device` | verification controller | `brew install agent-device` (or see [agent-device docs](https://github.com/espetro/agent-device)) |
+| `agent-device` v0.18+ | verification controller | `brew install agent-device` (or see [agent-device docs](https://github.com/espetro/agent-device)) |
 
 Each tool is checked via PATH probing at server startup. If `xcode-select -p` succeeds the iOS adapter registers; if `emulator` or `adb` is on PATH, the Android adapter registers; if `agent-device` resolves, the controller registers. Otherwise the relevant MCP tools are simply absent — the server still starts.
+
+**Note on agent-device:** the controller adapter calls `agent-device proxy` (added in agent-device v0.18). v0.14 and earlier register the controller adapter but `start_controller` will fail at spawn time with a clear error. Upgrade to v0.18+ for full controller support.
 
 To force a platform off:
 
