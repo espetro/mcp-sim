@@ -50,7 +50,7 @@ func (c *Controller) Start(ctx context.Context, cfg contract.StartConfig) (contr
 		port = c.port
 	}
 
-	cmd := exec.Command("agent-device", "proxy", "--port", strconv.Itoa(port))
+	cmd := exec.CommandContext(ctx, "agent-device", "proxy", "--port", strconv.Itoa(port))
 	if err := cmd.Start(); err != nil {
 		return contract.ProxyInfo{}, fmt.Errorf("starting agent-device: %w", err)
 	}
@@ -75,7 +75,7 @@ func (c *Controller) Stop(ctx context.Context) error {
 	}
 
 	// Find and kill the process.
-	cmd := exec.Command("pkill", "-f", "agent-device proxy")
+	cmd := exec.CommandContext(ctx, "pkill", "-f", "agent-device proxy")
 	_ = cmd.Run()
 
 	c.running = false
