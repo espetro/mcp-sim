@@ -34,11 +34,14 @@ MCPSIM_AGENT_DEVICE_ENABLED=false mcp-sim serve
 brew install espetro/mcp-sim/mcp-sim
 ```
 
-### go install
+<details>
+<summary>go install (build from source)</summary>
 
 ```bash
 go install github.com/espetro/mcp-sim/cmd/mcp-sim@latest
 ```
+
+</details>
 
 ### GitHub Releases
 
