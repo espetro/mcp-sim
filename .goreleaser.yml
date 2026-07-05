@@ -54,7 +54,7 @@ brews:
       name: homebrew-mcp-sim
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     commit_msg_template: 'ci: bump mcp-sim to {{ .Version }}'
-    folder: Formula
+    path: Formula
     test: |
       system "#{bin}/mcp-sim version"
     install: |
