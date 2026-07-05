@@ -40,7 +40,7 @@ Nothing yet.
 ### Fixed
 - **Android emulator killed by request ctx** — `exec.CommandContext(reqCtx)` in `platforms/android.Start()` was tying the emulator process lifetime to the MCP request. Cancelling the request (which the SDK does on response) sent SIGKILL to the emulator shortly after boot_device returned. Now spawned with `exec.CommandContext(context.Background(), ...)`.
 - **Android emulator stdio inherited from server** — if the server is backgrounded with a closed stdout/stderr pipe, the emulator gets SIGPIPE on its first log line. stdio now redirected to `io.Discard`.
-- **`agent-device proxy` subcommand doesn't exist** — refactored `controllers/agentdevice` as a presence checker (the original "proxy launcher" concept was based on a wrong assumption about agent-device's CLI).
+- **`agent-device` controller restoration** — initial v0.1.0 controller was tested against an older agent-device v0.14 that didn't ship the `proxy` subcommand. v0.1.1 restores proxy-spawning behavior using `agent-device proxy --port N --host 127.0.0.1 [--daemon-auth-token ...]`, matching agent-device v0.18+ (the current version). PID tracking + SIGTERM-on-stop pattern, same as the Android emulator.
 - **`open_url` errors had no context** — `cmd.Run()` returned just `exit status 1`. Now uses `CombinedOutput()` and includes stderr so callers see e.g. "Activity not started, unable to resolve Intent".
 - **`stop_device` didn't reliably terminate Android emulator** — relied on `adb emu kill` which can race. Now tracks spawned PIDs and SIGTERMs the process group directly.
 - **`await_ready` default timeout too short** — bumped from 60s to 180s (iOS Simulator boot on slower Macs takes ~90s).
