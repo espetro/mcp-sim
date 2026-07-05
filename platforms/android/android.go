@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/espetro/mcp-sim/internal/config"
@@ -46,9 +47,17 @@ func New(cfg config.AndroidConfig) (*Platform, error) {
 		androidHome = os.Getenv("ANDROID_HOME")
 		if androidHome == "" {
 			if home, _ := os.UserHomeDir(); home != "" {
-				androidHome = home + "/Library/Android/sdk"
-				if _, err := os.Stat(androidHome); os.IsNotExist(err) {
-					androidHome = home + "/Android/Sdk"
+				switch runtime.GOOS {
+				case "darwin":
+					androidHome = filepath.Join(home, "Library", "Android", "sdk")
+				case "windows":
+					if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
+						androidHome = filepath.Join(localAppData, "Android", "Sdk")
+					} else {
+						androidHome = filepath.Join(home, "AppData", "Local", "Android", "Sdk")
+					}
+				default:
+					androidHome = filepath.Join(home, "Android", "Sdk")
 				}
 			}
 		}
@@ -176,7 +185,7 @@ func (p *Platform) Start(ctx context.Context, target string, opts contract.Start
 	}
 
 	cmd := p.emulatorCmd(ctx, args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	setProcAttr(cmd)
 	if err := cmd.Start(); err != nil {
 		return contract.Device{}, fmt.Errorf("emulator start: %w", err)
 	}
@@ -289,7 +298,7 @@ func (p *Platform) Wipe(ctx context.Context, target string) error {
 	_ = p.Stop(ctx, target)
 	// Restart with -wipe-data.
 	cmd := p.emulatorCmd(ctx, "-avd", target, "-wipe-data")
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	setProcAttr(cmd)
 	_ = cmd.Start()
 	return nil
 }

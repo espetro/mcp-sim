@@ -4,9 +4,10 @@ AI agent context for the mcp-sim Go project (mobile emulator lifecycle MCP serve
 
 ## Project Overview
 
-mcp-sim is an MCP server for managing iOS Simulator and Android Emulator lifecycle
-on a remote macOS host. Built-in adapters for iOS (xcrun simctl), Android (emulator + adb),
-and agent-device controller.
+mcp-sim is an MCP server for managing iOS Simulator and Android Emulator lifecycle,
+runnable on macOS, Linux, or Windows. Built-in adapters for iOS (xcrun simctl, macOS-only —
+requires Xcode), Android (emulator + adb, cross-platform), and agent-device controller
+(cross-platform).
 
 ## Backlog
 
@@ -16,7 +17,7 @@ Issues #1–#21 cover M1 milestone tasks. M2 hardening tracked separately.
 
 ## Current release
 
-v0.1.1 — patch release with bug fixes. Branch `main` holds released commits. Use `develop` for
+v0.2.0 — cross-platform support (Windows/Linux), native service install, hosted doc site. Branch `main` holds released commits. Use `develop` for
 new work. Versions live in `internal/version/version.go` and are injected at
 build time via `-ldflags "-X .../internal/version.Version=..."`.
 
@@ -26,7 +27,7 @@ build time via `-ldflags "-X .../internal/version.Version=..."`.
 |----------|---------|
 | `docs/architecture.md` | Adapter model + separation of concerns |
 | `docs/tailscale.md` | Network deployment over Tailscale |
-| `docs/launchd.md` | macOS service management |
+| `docs/service.md` | Running mcp-sim as a native OS service (launchd/systemd/Windows Service) |
 | `docs/adding-platform.md` | Implementing new Platform adapters |
 | `CONTRIBUTING.md` | PR process + load-bearing separation rule |
 | `pkg/contract/platform.go` | Platform interface |

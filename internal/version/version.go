@@ -2,13 +2,13 @@
 //
 // All variables are ldflags-overridable:
 //
-//	go build -ldflags "-X github.com/espetro/mcp-sim/internal/version.Version=v0.1.1 \
+//	go build -ldflags "-X github.com/espetro/mcp-sim/internal/version.Version=v0.2.0 \
 //	                   -X github.com/espetro/mcp-sim/internal/version.Commit=$(git rev-parse HEAD) \
 //	                   -X github.com/espetro/mcp-sim/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 package version
 
-// Version is the semantic version of mcp-sim (e.g. "0.1.1").
-var Version = "0.1.1"
+// Version is the semantic version of mcp-sim (e.g. "0.2.0").
+var Version = "0.2.0"
 
 // Commit is the git commit SHA the binary was built from.
 var Commit = "none"

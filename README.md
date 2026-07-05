@@ -8,13 +8,13 @@
 
 mcp-sim is resilient: each platform adapter is auto-detected at startup, and a missing tool just means that platform's tools are skipped. You can run the server with **only iOS**, **only Android**, or **both**.
 
-For full functionality on macOS, install:
+The server itself runs on macOS, Linux, and Windows. iOS support requires macOS + Xcode (Simulator is Apple-only tooling); Android and the agent-device controller work on all three OSes.
 
-| Tool | Required for | Install |
-|------|---|---|
-| Xcode + iOS Simulators | iOS tools | `xcode-select --install` (or App Store → Xcode) |
-| Android SDK + `emulator` + `adb` | Android tools | Install [Android Studio](https://developer.android.com/studio) or `brew install --cask android-commandlinetools` |
-| `agent-device` | verification controller | `brew install agent-device` (or see [agent-device docs](https://github.com/espetro/agent-device)) |
+| Tool | Required for | OS | Install |
+|------|---|---|---|
+| Xcode + iOS Simulators | iOS tools | macOS only | `xcode-select --install` (or App Store → Xcode) |
+| Android SDK + `emulator` + `adb` | Android tools | macOS, Linux, Windows | Install [Android Studio](https://developer.android.com/studio) or `brew install --cask android-commandlinetools` |
+| `agent-device` | verification controller | macOS, Linux, Windows | `brew install agent-device` (or see [agent-device docs](https://github.com/espetro/agent-device)) |
 
 Each tool is checked via PATH probing at server startup. If `xcode-select -p` succeeds the iOS adapter registers; if `emulator` or `adb` is on PATH, the Android adapter registers; if `agent-device` resolves, the controller registers. Otherwise the relevant MCP tools are simply absent — the server still starts.
 
@@ -34,11 +34,14 @@ MCPSIM_AGENT_DEVICE_ENABLED=false mcp-sim serve
 brew install espetro/mcp-sim/mcp-sim
 ```
 
-### go install
+<details>
+<summary>go install (build from source)</summary>
 
 ```bash
 go install github.com/espetro/mcp-sim/cmd/mcp-sim@latest
 ```
+
+</details>
 
 ### GitHub Releases
 
@@ -63,7 +66,7 @@ Show version:
 
 ```bash
 mcp-sim version
-# mcp-sim 0.1.1 (commit, date)
+# mcp-sim 0.2.0 (commit, date)
 ```
 
 Configure your MCP client (Claude Code, Cursor, etc.):
@@ -98,10 +101,18 @@ For Tailscale-based remote access, see [docs/tailscale.md](docs/tailscale.md).
 
 ## Docs
 
+Browse the hosted docs site: **https://espetro.github.io/mcp-sim/**
+
 - [Architecture](docs/architecture.md) — adapter model and separation of concerns
 - [Tailscale setup](docs/tailscale.md) — running over Tailscale
-- [launchd](docs/launchd.md) — macOS service management
+- [Running as a service](docs/service.md) — install as a native OS service (launchd/systemd/Windows Service)
 - [Adding a platform](docs/adding-platform.md) — implementing the Platform interface
+
+Run the docs site locally:
+
+```bash
+task docs
+```
 
 ## License
 

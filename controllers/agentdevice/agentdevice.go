@@ -19,6 +19,7 @@ type Controller struct {
 	running bool
 	mu      sync.Mutex
 	stopCh  chan struct{}
+	cmd     *exec.Cmd
 }
 
 // New creates a new agent-device controller adapter.
@@ -57,6 +58,7 @@ func (c *Controller) Start(ctx context.Context, cfg contract.StartConfig) (contr
 
 	c.running = true
 	c.stopCh = make(chan struct{})
+	c.cmd = cmd
 
 	return contract.ProxyInfo{
 		Name:    c.Name(),
@@ -74,9 +76,9 @@ func (c *Controller) Stop(ctx context.Context) error {
 		return nil
 	}
 
-	// Find and kill the process.
-	cmd := exec.CommandContext(ctx, "pkill", "-f", "agent-device proxy")
-	_ = cmd.Run()
+	if c.cmd != nil && c.cmd.Process != nil {
+		_ = c.cmd.Process.Kill()
+	}
 
 	c.running = false
 	close(c.stopCh)

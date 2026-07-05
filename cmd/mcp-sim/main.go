@@ -5,22 +5,23 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"os/signal"
 	"sort"
 	"syscall"
 
 	"github.com/espetro/mcp-sim/controllers/agentdevice"
+	"github.com/espetro/mcp-sim/internal/bootstrap"
 	"github.com/espetro/mcp-sim/internal/config"
 	"github.com/espetro/mcp-sim/internal/core"
-	srv "github.com/espetro/mcp-sim/internal/http"
 	applog "github.com/espetro/mcp-sim/internal/log"
+	svc "github.com/espetro/mcp-sim/internal/service"
 	"github.com/espetro/mcp-sim/internal/version"
 	"github.com/espetro/mcp-sim/pkg/mcp"
 	"github.com/espetro/mcp-sim/platforms/android"
 	"github.com/espetro/mcp-sim/platforms/ios"
 
+	kservice "github.com/kardianos/service"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -29,6 +30,7 @@ const (
 	cmdHelp    = "help"
 	cmdServe   = "serve"
 	cmdMCP     = "mcp"
+	cmdService = "service"
 	cmdVersion = "version"
 )
 
@@ -40,6 +42,7 @@ Usage:
 Commands:
   serve       Start the HTTP/SSE server (long-lived, default for service mode)
   mcp         Run over stdio (spawnable per agent session)
+  service     Install/manage mcp-sim as a native OS service
   version     Print version information
   help        Print this message
 
@@ -73,6 +76,32 @@ Flags:
 Reads JSON-RPC from stdin, writes to stdout.
 `
 
+const usageService = `mcp-sim service — install/manage mcp-sim as a native OS service
+
+Installs mcp-sim as a launchd service (macOS), systemd service (Linux), or
+Windows Service (Windows), managed by the OS the same way as any other
+background service.
+
+Usage:
+  mcp-sim service <action> [flags]
+
+Actions:
+  install     Register mcp-sim with the OS service manager
+  uninstall   Remove mcp-sim from the OS service manager
+  start       Start the installed service
+  stop        Stop the installed service
+  restart     Restart the installed service
+  status      Print the installed service's status
+  run         Hidden entry point invoked by the OS service manager itself
+
+Flags (only meaningful with "install"):
+  -listen, --listen  Address to bind (overrides config; carried to "run")
+  -config, --config  Path to YAML config file (carried to "run")
+  -user, --user      Install as a per-user service, no root required
+                      (unsupported on Windows)
+  -h, --help        Show this help
+`
+
 func main() {
 	if err := run(os.Args[0], os.Args[1:], os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
@@ -95,6 +124,8 @@ func run(prog string, args []string, stdout io.Writer) error {
 		return runServe(prog, args[1:], stdout)
 	case cmdMCP:
 		return runMCP(prog, args[1:], stdout)
+	case cmdService:
+		return runService(prog, args[1:], stdout)
 	case "-v", "--version":
 		return printVersion(stdout)
 	default:
@@ -166,6 +197,93 @@ func runMCP(prog string, args []string, stdout io.Writer) error {
 	return mcpImpl(prog, *configPath)
 }
 
+// runService parses the service action and flags, then dispatches to
+// kardianos/service's control functions or runs as the installed service.
+func runService(prog string, args []string, stdout io.Writer) error {
+	if len(args) == 0 || isHelpFlag(args[0]) || args[0] == cmdHelp {
+		fmt.Fprint(stdout, usageService)
+		return nil
+	}
+	action := args[0]
+
+	fs := flag.NewFlagSet(cmdService, flag.ContinueOnError)
+	fs.SetOutput(stdout)
+	listenAddr := fs.String("listen", "", "Address to bind (overrides config)")
+	configPath := fs.String("config", "", "Path to YAML config file")
+	userService := fs.Bool("user", false, "Install as a per-user service (no root required; unsupported on Windows)")
+	fs.Usage = func() { fmt.Fprint(stdout, usageService) }
+	if err := fs.Parse(args[1:]); err != nil {
+		if err == flag.ErrHelp {
+			return nil
+		}
+		fmt.Fprint(stdout, usageService)
+		return err
+	}
+
+	var svcArgs []string
+	if *listenAddr != "" {
+		svcArgs = append(svcArgs, "--listen", *listenAddr)
+	}
+	if *configPath != "" {
+		svcArgs = append(svcArgs, "--config", *configPath)
+	}
+
+	svcConfig, err := svc.BuildConfig(svcArgs, *userService)
+	if err != nil {
+		return fmt.Errorf("building service config: %w", err)
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("loading config: %w", err)
+	}
+	if *listenAddr != "" {
+		cfg.Server.Listen = *listenAddr
+	}
+
+	logger := applog.New(cfg.Server.LogLevel, cfg.Server.LogFormat)
+	program := svc.NewProgram(cfg, logger)
+
+	s, err := kservice.New(program, svcConfig)
+	if err != nil {
+		return fmt.Errorf("creating service: %w", err)
+	}
+
+	switch action {
+	case "run":
+		return s.Run()
+	case "status":
+		status, err := s.Status()
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(stdout, serviceStatusString(status))
+		return nil
+	case "install", "uninstall", "start", "stop", "restart":
+		if err := kservice.Control(s, action); err != nil {
+			return err
+		}
+		fmt.Fprintf(stdout, "mcp-sim service: %s ok\n", action)
+		return nil
+	default:
+		fmt.Fprintf(os.Stderr, "%s: unknown service action %q\n\n", prog, action)
+		fmt.Fprint(stdout, usageService)
+		os.Exit(2)
+		return nil // unreachable
+	}
+}
+
+func serviceStatusString(status kservice.Status) string {
+	switch status {
+	case kservice.StatusRunning:
+		return "running"
+	case kservice.StatusStopped:
+		return "stopped"
+	default:
+		return "unknown"
+	}
+}
+
 // serveImpl and mcpImpl are the actual implementation of each subcommand.
 // Extracted so run() stays small and command flags parse first.
 func serveImpl(prog, listenAddr, configPath string) error {
@@ -181,45 +299,10 @@ func serveImpl(prog, listenAddr, configPath string) error {
 	logger := applog.New(cfg.Server.LogLevel, cfg.Server.LogFormat)
 	ctx := applog.WithContext(context.Background(), logger)
 
-	registry := core.NewRegistry(logger)
-	lifecycle := core.NewLifecycle(registry)
-
-	if cfg.Platforms.IOS.Enabled {
-		iosPlatform, err := ios.New(ctx, cfg.Platforms.IOS)
-		if err != nil {
-			return fmt.Errorf("ios platform: %w", err)
-		}
-		if iosPlatform == nil {
-			logger.Warn("ios platform disabled — Xcode/xcrun not detected, skipping iOS tools")
-		} else {
-			registry.RegisterPlatform(iosPlatform)
-		}
+	registry, httpServer, err := bootstrap.BuildHTTPServer(ctx, cfg, logger)
+	if err != nil {
+		return err
 	}
-	if cfg.Platforms.Android.Enabled {
-		androidPlatform, err := android.New(cfg.Platforms.Android)
-		if err != nil {
-			return fmt.Errorf("android platform: %w", err)
-		}
-		if androidPlatform == nil {
-			logger.Warn("android platform disabled — emulator/adb not detected, skipping Android tools")
-		} else {
-			registry.RegisterPlatform(androidPlatform)
-		}
-	}
-	if cfg.Controllers.AgentDevice.Enabled {
-		registry.RegisterController(agentdevice.New(cfg.Controllers.AgentDevice))
-	}
-
-	mcpServer := mcp.NewServer(registry, lifecycle, logger)
-
-	mux := http.NewServeMux()
-	mux.Handle("/mcp", mcpServer.StreamableHTTPHandler())
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintln(w, "ok")
-	})
-
-	httpServer := srv.New(cfg.Server.Listen, http.HandlerFunc(mux.ServeHTTP))
 
 	logger.Info("mcp-sim starting",
 		"version", version.Version,
