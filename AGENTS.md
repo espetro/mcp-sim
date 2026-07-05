@@ -4,9 +4,10 @@ AI agent context for the mcp-sim Go project (mobile emulator lifecycle MCP serve
 
 ## Project Overview
 
-mcp-sim is an MCP server for managing iOS Simulator and Android Emulator lifecycle
-on a remote macOS host. Built-in adapters for iOS (xcrun simctl), Android (emulator + adb),
-and agent-device controller.
+mcp-sim is an MCP server for managing iOS Simulator and Android Emulator lifecycle,
+runnable on macOS, Linux, or Windows. Built-in adapters for iOS (xcrun simctl, macOS-only —
+requires Xcode), Android (emulator + adb, cross-platform), and agent-device controller
+(cross-platform).
 
 ## Backlog
 
