@@ -90,7 +90,7 @@ func Load() (Config, error) {
 		}
 	} else if home := os.Getenv("HOME"); home != "" {
 		defaultPath := home + "/.config/mcp-sim/config.yaml"
-		loadFile(defaultPath, &cfg) // ignore error if missing
+		_ = loadFile(defaultPath, &cfg) // ignore error if missing
 	}
 
 	// Env var overrides (highest priority).
@@ -134,6 +134,7 @@ func Load() (Config, error) {
 }
 
 func loadFile(path string, cfg *Config) error {
+	// #nosec G703 -- path comes from operator-controlled env or known fixed default
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return err
