@@ -71,7 +71,7 @@ func serve(args []string) error {
 
 	// Register platforms.
 	if cfg.Platforms.IOS.Enabled {
-		iosPlatform, err := ios.New(cfg.Platforms.IOS)
+		iosPlatform, err := ios.New(ctx, cfg.Platforms.IOS)
 		if err != nil {
 			return fmt.Errorf("ios platform: %w", err)
 		}
@@ -139,7 +139,7 @@ func mcpMode(args []string) error {
 	lifecycle := core.NewLifecycle(registry)
 
 	if cfg.Platforms.IOS.Enabled {
-		iosPlatform, _ := ios.New(cfg.Platforms.IOS)
+		iosPlatform, _ := ios.New(ctx, cfg.Platforms.IOS)
 		if iosPlatform != nil {
 			registry.RegisterPlatform(iosPlatform)
 		}
