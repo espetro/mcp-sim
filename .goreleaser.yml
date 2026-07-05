@@ -47,7 +47,7 @@ release:
 project_name: mcp-sim
 
 # Homebrew tap (requires TAP_GITHUB_TOKEN secret with repo scope on espetro/homebrew-mcp-sim)
-homebrew_casks:
+brews:
   - name: mcp-sim
     repository:
       owner: espetro
