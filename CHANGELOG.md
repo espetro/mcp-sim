@@ -51,6 +51,8 @@ Nothing yet.
 - `docs/releases/v0.1.0.md` — release notes for the v0.1.0 tag.
 - `.agents/plans/2026-07-05-v0.1.0-integration-test.md` — integration test report.
 - `.agents/plans/2026-07-05-v0.1.1-release.md` — release plan for v0.1.1.
+- `espetro/homebrew-mcp-sim` tap repo created on GitHub; GoReleaser `brews` block now includes a `service` stanza so `brew services start/stop/restart mcp-sim` works as documented in `docs/launchd.md`.
+- `.github/workflows/release.yml` — GitHub Actions workflow that runs GoReleaser (and publishes the Homebrew formula) on `v*` tag push.
 
 ## [0.1.0] - 2026-07-05
 
