@@ -1,0 +1,70 @@
+# mcp-sim — Agent Guide
+
+AI agent context for the mcp-sim Go project (mobile emulator lifecycle MCP server).
+
+## Project Overview
+
+mcp-sim is an MCP server for managing iOS Simulator and Android Emulator lifecycle
+on a remote macOS host. Built-in adapters for iOS (xcrun simctl), Android (emulator + adb),
+and agent-device controller.
+
+## Backlog
+
+We use a [GitHub project](https://github.com/users/espetro/projects/20) as project backlog.
+
+Issues #1–#21 cover M1 milestone tasks. M2 hardening tracked separately.
+
+## Key Documentation
+
+| Document | Purpose |
+|----------|---------|
+| `docs/architecture.md` | Adapter model + separation of concerns |
+| `docs/tailscale.md` | Network deployment over Tailscale |
+| `docs/launchd.md` | macOS service management |
+| `docs/adding-platform.md` | Implementing new Platform adapters |
+| `CONTRIBUTING.md` | PR process + load-bearing separation rule |
+| `pkg/contract/platform.go` | Platform interface |
+| `pkg/contract/controller.go` | Controller interface |
+
+## Agent Workflow
+
+1. **Run validate**: `task validate` (typecheck + lint + test)
+2. **Build**: `task build` produces `bin/mcp-sim`
+3. **Run locally**: `task run -- --listen :9090`
+4. **Read per-package docs** before modifying adapters
+
+### Commit style
+
+- Atomic commits: each commit is a single self-contained logical change
+- Conventional commit format (feat:, fix:, chore:, docs:, ci:)
+- Pass CI locally before committing
+
+### Branches
+
+- `main`: protected, release commits only
+- `develop`: integration branch, feature branches merge here
+- `release/vX.Y.Z`: release branches
+- `hotfix/vX.Y.Z`: emergency fixes from main
+
+## Stack Summary
+
+- **Language**: Go 1.25+
+- **MCP**: `github.com/modelcontextprotocol/go-sdk` v1.6+
+- **Config**: `gopkg.in/yaml.v3` + stdlib `os.Getenv`
+- **Logging**: stdlib `log/slog`
+- **HTTP**: stdlib `net/http` (1.22+ `ServeMux`)
+
+## Package Overview
+
+```
+cmd/mcp-sim/            Entry point: serve | mcp | version
+pkg/contract/           Platform + Controller interfaces (public)
+pkg/mcp/                MCP server wiring (public)
+internal/config/        CLI > env > file > default resolution
+internal/log/           slog wrapper
+internal/http/          HTTP server with graceful shutdown
+internal/core/          Registry, lifecycle, tool handlers
+platforms/ios/          iOS Simulator adapter (xcrun simctl)
+platforms/android/      Android Emulator adapter (emulator + adb)
+controllers/agentdevice/ agent-device proxy adapter
+```
