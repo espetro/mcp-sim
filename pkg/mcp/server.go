@@ -19,7 +19,7 @@ type Server struct {
 }
 
 // NewServer creates an MCP server with the mcp-sim tool set registered.
-func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.Logger) *Server {
+func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, sessions *core.Manager, logger *slog.Logger) *Server {
 	s := mcp.NewServer(&mcp.Implementation{
 		Name:    "mcp-sim",
 		Title:   "MCP Simulator Server",
@@ -35,7 +35,7 @@ func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, struct {
 		Devices []contract.Device `json:"devices"`
 	}, error) {
-		devs, err := core.ListDevices(ctx, registry)
+		devs, err := core.ListDevices(ctx, registry, sessions)
 		return nil, struct {
 			Devices []contract.Device `json:"devices"`
 		}{Devices: devs}, err
@@ -46,18 +46,19 @@ func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.
 		Name:        "boot_device",
 		Description: "Boot a device by platform and target identifier.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in struct {
-		Platform string `json:"platform"`
-		Target   string `json:"target"`
-		NoWindow bool   `json:"no_window,omitempty"`
-		Port     int    `json:"port,omitempty"`
-		Timeout  int    `json:"timeout,omitempty"`
+		Platform  string `json:"platform"`
+		Target    string `json:"target"`
+		NoWindow  bool   `json:"no_window,omitempty"`
+		Port      int    `json:"port,omitempty"`
+		Timeout   int    `json:"timeout,omitempty"`
+		SessionID string `json:"session_id,omitempty"`
 	}) (*mcp.CallToolResult, contract.Device, error) {
 		opts := contract.StartOpts{
 			NoWindow: in.NoWindow,
 			Port:     in.Port,
 			Timeout:  time.Duration(in.Timeout) * time.Second,
 		}
-		dev, err := lifecycle.BootDevice(ctx, in.Platform, in.Target, opts)
+		dev, err := lifecycle.BootDevice(ctx, in.Platform, in.Target, in.SessionID, opts)
 		return nil, dev, err
 	})
 
@@ -66,13 +67,14 @@ func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.
 		Name:        "stop_device",
 		Description: "Stop a running device by platform and target identifier.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in struct {
-		Platform string `json:"platform"`
-		Target   string `json:"target"`
+		Platform  string `json:"platform"`
+		Target    string `json:"target"`
+		SessionID string `json:"session_id,omitempty"`
 	}) (*mcp.CallToolResult, contract.Device, error) {
-		if err := lifecycle.StopDevice(ctx, in.Platform, in.Target); err != nil {
+		if err := lifecycle.StopDevice(ctx, in.Platform, in.Target, in.SessionID); err != nil {
 			return nil, contract.Device{}, err
 		}
-		state, err := core.GetDeviceState(ctx, registry, in.Platform, in.Target)
+		state, err := core.GetDeviceState(ctx, registry, sessions, in.Platform, in.Target, in.SessionID)
 		return nil, contract.Device{Platform: in.Platform, ID: in.Target, State: state}, err
 	})
 
@@ -81,13 +83,14 @@ func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.
 		Name:        "wipe_device",
 		Description: "Wipe a device, erasing its user data. Stops the device first if needed.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in struct {
-		Platform string `json:"platform"`
-		Target   string `json:"target"`
+		Platform  string `json:"platform"`
+		Target    string `json:"target"`
+		SessionID string `json:"session_id,omitempty"`
 	}) (*mcp.CallToolResult, contract.Device, error) {
-		if err := lifecycle.WipeDevice(ctx, in.Platform, in.Target); err != nil {
+		if err := lifecycle.WipeDevice(ctx, in.Platform, in.Target, in.SessionID); err != nil {
 			return nil, contract.Device{}, err
 		}
-		state, err := core.GetDeviceState(ctx, registry, in.Platform, in.Target)
+		state, err := core.GetDeviceState(ctx, registry, sessions, in.Platform, in.Target, in.SessionID)
 		return nil, contract.Device{Platform: in.Platform, ID: in.Target, State: state}, err
 	})
 
@@ -96,12 +99,13 @@ func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.
 		Name:        "get_state",
 		Description: "Get the current state of a device (stopped/booting/running/error).",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in struct {
-		Platform string `json:"platform"`
-		Target   string `json:"target"`
+		Platform  string `json:"platform"`
+		Target    string `json:"target"`
+		SessionID string `json:"session_id,omitempty"`
 	}) (*mcp.CallToolResult, struct {
 		State string `json:"state"`
 	}, error) {
-		state, err := core.GetDeviceState(ctx, registry, in.Platform, in.Target)
+		state, err := core.GetDeviceState(ctx, registry, sessions, in.Platform, in.Target, in.SessionID)
 		return nil, struct {
 			State string `json:"state"`
 		}{State: string(state)}, err
@@ -112,15 +116,16 @@ func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.
 		Name:        "await_ready",
 		Description: "Block until the device is fully booted, or the timeout fires.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in struct {
-		Platform string `json:"platform"`
-		Target   string `json:"target"`
-		Timeout  int    `json:"timeout,omitempty"`
+		Platform  string `json:"platform"`
+		Target    string `json:"target"`
+		Timeout   int    `json:"timeout,omitempty"`
+		SessionID string `json:"session_id,omitempty"`
 	}) (*mcp.CallToolResult, struct{ Ready bool }, error) {
 		timeout := time.Duration(in.Timeout) * time.Second
 		if timeout == 0 {
 			timeout = 180 * time.Second
 		}
-		if err := core.AwaitDeviceReady(ctx, registry, in.Platform, in.Target, timeout); err != nil {
+		if err := core.AwaitDeviceReady(ctx, registry, sessions, in.Platform, in.Target, in.SessionID, timeout); err != nil {
 			return nil, struct{ Ready bool }{}, err
 		}
 		return nil, struct{ Ready bool }{Ready: true}, nil
@@ -131,11 +136,12 @@ func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.
 		Name:        "open_url",
 		Description: "Open a URL or deep link on a device.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in struct {
-		Platform string `json:"platform"`
-		Target   string `json:"target"`
-		URL      string `json:"url"`
+		Platform  string `json:"platform"`
+		Target    string `json:"target"`
+		URL       string `json:"url"`
+		SessionID string `json:"session_id,omitempty"`
 	}) (*mcp.CallToolResult, struct{ Success bool }, error) {
-		if err := lifecycle.OpenURL(ctx, in.Platform, in.Target, in.URL); err != nil {
+		if err := lifecycle.OpenURL(ctx, in.Platform, in.Target, in.SessionID, in.URL); err != nil {
 			return nil, struct{ Success bool }{}, err
 		}
 		return nil, struct{ Success bool }{Success: true}, nil

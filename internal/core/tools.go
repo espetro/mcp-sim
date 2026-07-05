@@ -19,12 +19,17 @@ func (e *ToolError) Error() string {
 }
 
 // ListDevices returns all devices across all platforms.
-func ListDevices(ctx context.Context, registry *Registry) ([]contract.Device, error) {
+func ListDevices(ctx context.Context, registry *Registry, sessions *Manager) ([]contract.Device, error) {
 	var result []contract.Device
 	for name, p := range registry.AllPlatforms() {
 		devs, err := p.List(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("listing devices on %s: %w", name, err)
+		}
+		for i := range devs {
+			if owner, ok := sessions.Owner(name, devs[i].ID); ok {
+				devs[i].OwnerSession = owner
+			}
 		}
 		result = append(result, devs...)
 	}
@@ -32,15 +37,19 @@ func ListDevices(ctx context.Context, registry *Registry) ([]contract.Device, er
 }
 
 // GetDeviceState returns the state of a specific device.
-func GetDeviceState(ctx context.Context, registry *Registry, platformName, target string) (contract.DeviceState, error) {
+func GetDeviceState(ctx context.Context, registry *Registry, sessions *Manager, platformName, target, sessionID string) (contract.DeviceState, error) {
 	p, ok := registry.PlatformByName(platformName)
 	if !ok {
 		return contract.DeviceStateUnknown, &ToolError{Code: contract.ErrUnsupportedPlatform, Msg: "platform not found: " + platformName}
+	}
+	if err := sessions.CheckAccess(platformName, target, sessionID); err != nil {
+		return contract.DeviceStateUnknown, err
 	}
 	state, err := p.State(ctx, target)
 	if err != nil {
 		return contract.DeviceStateUnknown, err
 	}
+	sessions.RecordActivity(platformName, target)
 	return state, nil
 }
 
@@ -72,10 +81,17 @@ func ControllerStatus(ctx context.Context, registry *Registry, name string) (con
 }
 
 // AwaitDeviceReady waits for a device to become ready.
-func AwaitDeviceReady(ctx context.Context, registry *Registry, platformName, target string, timeout time.Duration) error {
+func AwaitDeviceReady(ctx context.Context, registry *Registry, sessions *Manager, platformName, target, sessionID string, timeout time.Duration) error {
 	p, ok := registry.PlatformByName(platformName)
 	if !ok {
 		return &ToolError{Code: contract.ErrUnsupportedPlatform, Msg: "platform not found: " + platformName}
 	}
-	return p.AwaitReady(ctx, target, timeout)
+	if err := sessions.CheckAccess(platformName, target, sessionID); err != nil {
+		return err
+	}
+	if err := p.AwaitReady(ctx, target, timeout); err != nil {
+		return err
+	}
+	sessions.RecordActivity(platformName, target)
+	return nil
 }

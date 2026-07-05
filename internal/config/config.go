@@ -17,9 +17,10 @@ type Config struct {
 
 // ServerConfig configures the HTTP server.
 type ServerConfig struct {
-	Listen    string `yaml:"listen"`     // MCPSIM_LISTEN
-	LogLevel  string `yaml:"log_level"`  // MCPSIM_LOG_LEVEL
-	LogFormat string `yaml:"log_format"` // MCPSIM_LOG_FORMAT
+	Listen             string `yaml:"listen"`                // MCPSIM_LISTEN
+	LogLevel           string `yaml:"log_level"`             // MCPSIM_LOG_LEVEL
+	LogFormat          string `yaml:"log_format"`            // MCPSIM_LOG_FORMAT
+	SessionIdleTimeout string `yaml:"session_idle_timeout"`  // MCPSIM_SESSION_IDLE_TIMEOUT
 }
 
 // PlatformsConfig holds per-platform configuration.
@@ -57,9 +58,10 @@ type AgentDeviceConfig struct {
 func defaultConfig() Config {
 	return Config{
 		Server: ServerConfig{
-			Listen:    ":9090",
-			LogLevel:  "info",
-			LogFormat: "text",
+			Listen:             ":9090",
+			LogLevel:           "info",
+			LogFormat:          "text",
+			SessionIdleTimeout: "30m",
 		},
 		Platforms: PlatformsConfig{
 			IOS: IOSConfig{
@@ -102,6 +104,9 @@ func Load() (Config, error) {
 	}
 	if v := os.Getenv("MCPSIM_LOG_FORMAT"); v != "" {
 		cfg.Server.LogFormat = v
+	}
+	if v := os.Getenv("MCPSIM_SESSION_IDLE_TIMEOUT"); v != "" {
+		cfg.Server.SessionIdleTimeout = v
 	}
 	if v := os.Getenv("MCPSIM_IOS_ENABLED"); v != "" {
 		cfg.Platforms.IOS.Enabled, _ = strconv.ParseBool(v)

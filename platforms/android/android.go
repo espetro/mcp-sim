@@ -148,7 +148,9 @@ func (p *Platform) List(ctx context.Context) ([]contract.Device, error) {
 
 	var devs []contract.Device
 	for _, name := range avds {
+		p.mu.Lock()
 		port, ok := p.avdPortMap[name]
+		p.mu.Unlock()
 		state := contract.DeviceStateStopped
 		if ok {
 			serial := fmt.Sprintf("emulator-%d", port)
@@ -257,7 +259,9 @@ func (p *Platform) Stop(ctx context.Context, target string) error {
 
 // State returns the state of an emulator.
 func (p *Platform) State(ctx context.Context, target string) (contract.DeviceState, error) {
+	p.mu.Lock()
 	port, ok := p.avdPortMap[target]
+	p.mu.Unlock()
 	if !ok {
 		// Try to discover port from adb devices.
 		out, err := p.adbCmd(ctx, "devices").Output()
@@ -277,7 +281,9 @@ func (p *Platform) State(ctx context.Context, target string) (contract.DeviceSta
 			serial := parts[0]
 			if strings.HasPrefix(serial, "emulator-") {
 				if n, err := strconv.Atoi(strings.TrimPrefix(serial, "emulator-")); err == nil {
+					p.mu.Lock()
 					p.avdPortMap[target] = n
+					p.mu.Unlock()
 					port = n
 					break
 				}

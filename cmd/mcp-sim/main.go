@@ -9,7 +9,9 @@ import (
 	"os"
 	"os/signal"
 	"sort"
+	"strings"
 	"syscall"
+	"time"
 
 	"github.com/espetro/mcp-sim/controllers/agentdevice"
 	"github.com/espetro/mcp-sim/internal/config"
@@ -182,7 +184,16 @@ func serveImpl(prog, listenAddr, configPath string) error {
 	ctx := applog.WithContext(context.Background(), logger)
 
 	registry := core.NewRegistry(logger)
-	lifecycle := core.NewLifecycle(registry)
+
+	timeout, err := parseSessionIdleTimeout(cfg.Server.SessionIdleTimeout)
+	if err != nil {
+		return fmt.Errorf("parsing session_idle_timeout: %w", err)
+	}
+	sessionManager := core.NewManager(timeout, logger)
+	lifecycle := core.NewLifecycle(registry, sessionManager)
+	sessionManager.SetStopper(func(ctx context.Context, platform, target, owner string) error {
+		return lifecycle.StopDevice(ctx, platform, target, owner)
+	})
 
 	if cfg.Platforms.IOS.Enabled {
 		iosPlatform, err := ios.New(ctx, cfg.Platforms.IOS)
@@ -214,7 +225,7 @@ func serveImpl(prog, listenAddr, configPath string) error {
 		}
 	}
 
-	mcpServer := mcp.NewServer(registry, lifecycle, logger)
+	mcpServer := mcp.NewServer(registry, lifecycle, sessionManager, logger)
 
 	mux := http.NewServeMux()
 	mux.Handle("/mcp", mcpServer.StreamableHTTPHandler())
@@ -233,7 +244,9 @@ func serveImpl(prog, listenAddr, configPath string) error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	ctx = applog.WithContext(ctx, logger)
 
+	go sessionManager.Start(ctx)
 	go func() {
 		<-ctx.Done()
 		logger.Info("shutdown signal received")
@@ -257,7 +270,16 @@ func mcpImpl(prog, configPath string) error {
 	ctx := applog.WithContext(context.Background(), logger)
 
 	registry := core.NewRegistry(logger)
-	lifecycle := core.NewLifecycle(registry)
+
+	timeout, err := parseSessionIdleTimeout(cfg.Server.SessionIdleTimeout)
+	if err != nil {
+		return fmt.Errorf("parsing session_idle_timeout: %w", err)
+	}
+	sessionManager := core.NewManager(timeout, logger)
+	lifecycle := core.NewLifecycle(registry, sessionManager)
+	sessionManager.SetStopper(func(ctx context.Context, platform, target, owner string) error {
+		return lifecycle.StopDevice(ctx, platform, target, owner)
+	})
 
 	if cfg.Platforms.IOS.Enabled {
 		iosPlatform, _ := ios.New(ctx, cfg.Platforms.IOS)
@@ -277,7 +299,9 @@ func mcpImpl(prog, configPath string) error {
 		}
 	}
 
-	mcpServer := mcp.NewServer(registry, lifecycle, logger)
+	go sessionManager.Start(ctx)
+
+	mcpServer := mcp.NewServer(registry, lifecycle, sessionManager, logger)
 	return mcpServer.Run(ctx, &sdkmcp.StdioTransport{})
 }
 
@@ -300,4 +324,15 @@ func controllerNames(r *core.Registry) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+func parseSessionIdleTimeout(v string) (time.Duration, error) {
+	v = strings.TrimSpace(strings.ToLower(v))
+	if v == "" {
+		return 30 * time.Minute, nil
+	}
+	if v == "0" || v == "off" {
+		return 0, nil
+	}
+	return time.ParseDuration(v)
 }
