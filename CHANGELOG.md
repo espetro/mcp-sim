@@ -20,6 +20,26 @@ Nothing yet.
 ### Security
 -->
 
+## [0.2.0] - 2026-07-05
+
+### Added
+
+- `mcp-sim service` subcommand (install/uninstall/start/stop/restart/status/run) via `github.com/kardianos/service` — installs mcp-sim as a native background service (launchd/systemd/Windows Service), with a `--user` mode for non-root installs on macOS/Linux.
+- Windows binaries in GoReleaser cross-compilation matrix (darwin/linux/windows × amd64/arm64).
+- Hosted doc site at https://espetro.github.io/mcp-sim/, built from `docs/` via docmd and deployed to GitHub Pages on push to `main`. `task docs` / `task docs-build` for local preview/build.
+
+### Changed
+
+- Android adapter and agent-device controller now run correctly on Windows and Linux (previously darwin/linux-only): `setProcAttr` split into `procattr_unix.go`/`procattr_windows.go` (Setpgid vs `CREATE_NEW_PROCESS_GROUP`); Android SDK home-dir probing covers macOS/Linux/Windows defaults.
+- `agent-device` controller stop now uses `cmd.Process.Kill()` instead of Unix-only `pkill -f`.
+- Default config path now resolved via `os.UserHomeDir()` instead of raw `$HOME` lookup, fixing Windows.
+- CI (`ci.yml`) now runs a cross-platform matrix (ubuntu/windows/macos) for build+vet+test.
+- `docs/launchd.md` renamed to `docs/service.md`; README/AGENTS.md wording corrected — only iOS Simulator tools require macOS, the rest of the server runs on all three OSes.
+
+### Removed
+
+- `docs/releases/` — release notes duplicated root `CHANGELOG.md`; dropped in favor of the single changelog.
+
 ## [0.1.1] - 2026-07-05
 
 ### Fixed
@@ -59,6 +79,7 @@ Nothing yet.
 - Cross-compiled releases via GoReleaser (darwin/linux/windows × amd64/arm64)
 - Homebrew tap `espetro/homebrew-mcp-sim` (when published)
 
-[Unreleased]: https://github.com/espetro/mcp-sim/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/espetro/mcp-sim/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/espetro/mcp-sim/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/espetro/mcp-sim/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/espetro/mcp-sim/releases/tag/v0.1.0
