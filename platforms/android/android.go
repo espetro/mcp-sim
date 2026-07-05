@@ -71,21 +71,21 @@ func (p *Platform) env() []string {
 	return env
 }
 
-func (p *Platform) emulatorCmd(args ...string) *exec.Cmd {
-	cmd := exec.Command(p.emulatorBin, args...)
+func (p *Platform) emulatorCmd(ctx context.Context, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, p.emulatorBin, args...)
 	cmd.Env = p.env()
 	return cmd
 }
 
-func (p *Platform) adbCmd(args ...string) *exec.Cmd {
-	cmd := exec.Command("adb", args...)
+func (p *Platform) adbCmd(ctx context.Context, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, "adb", args...)
 	cmd.Env = p.env()
 	return cmd
 }
 
 // ListAVDs returns AVD names via `emulator -list-avds`.
-func (p *Platform) ListAVDs() ([]string, error) {
-	cmd := p.emulatorCmd("-list-avds")
+func (p *Platform) ListAVDs(ctx context.Context) ([]string, error) {
+	cmd := p.emulatorCmd(ctx, "-list-avds")
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("emulator -list-avds: %w", err)
@@ -101,46 +101,14 @@ func (p *Platform) ListAVDs() ([]string, error) {
 	return avds, nil
 }
 
-// serialForAVD finds the adb serial for a given AVD by checking adb devices output.
-func (p *Platform) serialForAVD(ctx context.Context, avdName string) string {
-	out, err := p.adbCmd("devices").Output()
-	if err != nil {
-		return ""
-	}
-	sc := bufio.NewScanner(bytes.NewReader(out))
-	for sc.Scan() {
-		line := strings.TrimSpace(sc.Text())
-		if line == "" || strings.HasPrefix(line, "List") {
-			continue
-		}
-		parts := strings.Fields(line)
-		if len(parts) < 2 {
-			continue
-		}
-		serial := parts[0]
-		deviceType := parts[1]
-		if deviceType != "device" {
-			continue
-		}
-		// Check if this serial belongs to an emulator we manage.
-		for avd, port := range p.avdPortMap {
-			expectedSerial := fmt.Sprintf("emulator-%d", port)
-			if serial == expectedSerial && avd == avdName {
-				return serial
-			}
-		}
-	}
-	return ""
-}
-
 // List returns all Android emulators.
 func (p *Platform) List(ctx context.Context) ([]contract.Device, error) {
-	avds, err := p.ListAVDs()
+	avds, err := p.ListAVDs(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	adbOut, err := p.adbCmd("devices").Output()
+	adbOut, err := p.adbCmd(ctx, "devices").Output()
 	if err != nil {
 		return nil, fmt.Errorf("adb devices: %w", err)
 	}
@@ -192,7 +160,7 @@ func (p *Platform) Start(ctx context.Context, target string, opts contract.Start
 		args = append(args, "-no-window")
 	}
 
-	cmd := p.emulatorCmd(args...)
+	cmd := p.emulatorCmd(ctx, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := cmd.Start(); err != nil {
 		return contract.Device{}, fmt.Errorf("emulator start: %w", err)
@@ -213,7 +181,7 @@ func (p *Platform) Start(ctx context.Context, target string, opts contract.Start
 		case <-deadline.Done():
 			return contract.Device{ID: target, Name: target, Platform: "android", State: contract.DeviceStateBooting}, nil
 		case <-ticker.C:
-			out, _ := p.adbCmd("-s", serial, "get-state").Output()
+			out, _ := p.adbCmd(deadline, "-s", serial, "get-state").Output()
 			if strings.TrimSpace(string(out)) == "device" {
 				return contract.Device{ID: target, Name: target, Platform: "android", State: contract.DeviceStateRunning}, nil
 			}
@@ -228,7 +196,7 @@ func (p *Platform) Stop(ctx context.Context, target string) error {
 		return fmt.Errorf("no port mapping for AVD: %s", target)
 	}
 	serial := fmt.Sprintf("emulator-%d", port)
-	_ = p.adbCmd("-s", serial, "emu", "kill").Run()
+	_ = p.adbCmd(ctx, "-s", serial, "emu", "kill").Run()
 	return nil
 }
 
@@ -237,7 +205,7 @@ func (p *Platform) State(ctx context.Context, target string) (contract.DeviceSta
 	port, ok := p.avdPortMap[target]
 	if !ok {
 		// Try to discover port from adb devices.
-		out, err := p.adbCmd("devices").Output()
+		out, err := p.adbCmd(ctx, "devices").Output()
 		if err != nil {
 			return contract.DeviceStateUnknown, err
 		}
@@ -266,7 +234,7 @@ func (p *Platform) State(ctx context.Context, target string) (contract.DeviceSta
 	}
 
 	serial := fmt.Sprintf("emulator-%d", port)
-	out, err := p.adbCmd("-s", serial, "get-state").Output()
+	out, err := p.adbCmd(ctx, "-s", serial, "get-state").Output()
 	if err != nil {
 		return contract.DeviceStateUnknown, err
 	}
@@ -305,7 +273,7 @@ func (p *Platform) AwaitReady(ctx context.Context, target string, timeout time.D
 func (p *Platform) Wipe(ctx context.Context, target string) error {
 	_ = p.Stop(ctx, target)
 	// Restart with -wipe-data.
-	cmd := p.emulatorCmd("-avd", target, "-wipe-data")
+	cmd := p.emulatorCmd(ctx, "-avd", target, "-wipe-data")
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	_ = cmd.Start()
 	return nil
@@ -318,6 +286,6 @@ func (p *Platform) OpenURL(ctx context.Context, target, url string) error {
 		return fmt.Errorf("no port mapping for AVD: %s", target)
 	}
 	serial := fmt.Sprintf("emulator-%d", port)
-	cmd := p.adbCmd("-s", serial, "shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", url)
+	cmd := p.adbCmd(ctx, "-s", serial, "shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", url)
 	return cmd.Run()
 }
