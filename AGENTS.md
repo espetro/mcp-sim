@@ -16,7 +16,7 @@ Issues #1–#21 cover M1 milestone tasks. M2 hardening tracked separately.
 
 ## Current release
 
-v0.1.0 — initial MVP. Branch `main` holds released commits. Use `develop` for
+v0.1.1 — patch release with bug fixes. Branch `main` holds released commits. Use `develop` for
 new work. Versions live in `internal/version/version.go` and are injected at
 build time via `-ldflags "-X .../internal/version.Version=..."`.
 

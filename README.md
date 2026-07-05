@@ -63,7 +63,7 @@ Show version:
 
 ```bash
 mcp-sim version
-# mcp-sim 0.1.0 (commit, date)
+# mcp-sim 0.1.1 (commit, date)
 ```
 
 Configure your MCP client (Claude Code, Cursor, etc.):
