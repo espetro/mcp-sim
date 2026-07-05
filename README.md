@@ -2,13 +2,13 @@
 
 > **MCP server for iOS Simulator and Android Emulator lifecycle on a remote macOS host.**
 
-Boot on demand, verify via your agent, tear down on completion — emulators live exactly as long as the work that needs them.
+Boot on demand, verify via your agent, tear down on completion - emulators live exactly as long as the work that needs them.
 
 ## Features
 
-- **Lifecycle-only by design** — boot, stop, wipe, deep-link. Tap, screenshot, and view hierarchy are deliberately out of scope; those belong to verification controllers like [agent-device](https://github.com/callstack/agent-device).
-- **Lazy adapter registration** — iOS, Android, and agent-device are auto-detected at startup. The same binary serves Swift-only, Android-only, or full-stack users.
-- **MCP-over-HTTP + stdio** — long-lived service for remote hosts, stdio transport for per-agent spawn, both via the official [modelcontextprotocol/go-sdk](https://github.com/modelcontextprotocol/go-sdk).
+- **Lifecycle-only by design** - boot, stop, wipe, deep-link. Tap, screenshot, and view hierarchy are deliberately out of scope; those belong to verification controllers like [agent-device](https://github.com/callstack/agent-device).
+- **Lazy adapter registration** - iOS, Android, and agent-device are auto-detected at startup. The same binary serves Swift-only, Android-only, or full-stack users.
+- **MCP-over-HTTP + stdio** - long-lived service for remote hosts, stdio transport for per-agent spawn, both via the official [modelcontextprotocol/go-sdk](https://github.com/modelcontextprotocol/go-sdk).
 
 ## Quick start
 
@@ -67,9 +67,9 @@ If any tool is missing at startup, that platform's MCP tools are simply absent �
 
 ## What sets it apart
 
-- **Infrastructure vs verification split** — mcp-sim owns emulator lifecycle (power, state, data wipe, deep-link). Verification (taps, screenshots, accessibility) lives in controllers. The split is enforced in `CONTRIBUTING.md`; PRs that conflate them are closed.
-- **Tailscale-friendly by default** — bind to your Mac's Tailscale IP and an agent on a Linux VPS can drive emulators over the tailnet. See [docs/tailscale.md](docs/tailscale.md).
-- **Single static binary** — `CGO_ENABLED=0`, no runtime dependencies, ~12 MB. Ships via Homebrew tap, `go install`, and GitHub Releases.
+- **Infrastructure vs verification split** - mcp-sim owns emulator lifecycle (power, state, data wipe, deep-link). Verification (taps, screenshots, accessibility) lives in controllers. The split is enforced in `CONTRIBUTING.md`; PRs that conflate them are closed.
+- **Tailscale-friendly by default** - bind to your Mac's Tailscale IP and an agent on a Linux VPS can drive emulators over the tailnet. See [docs/tailscale.md](docs/tailscale.md).
+- **Single static binary** - `CGO_ENABLED=0`, no runtime dependencies, ~12 MB. Ships via Homebrew tap, `go install`, and GitHub Releases.
 
 ## Skills
 
