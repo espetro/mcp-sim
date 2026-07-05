@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"gopkg.in/yaml.v3"
@@ -88,8 +89,8 @@ func Load() (Config, error) {
 		if err := loadFile(path, &cfg); err != nil {
 			return Config{}, fmt.Errorf("loading config from %s: %w", path, err)
 		}
-	} else if home := os.Getenv("HOME"); home != "" {
-		defaultPath := home + "/.config/mcp-sim/config.yaml"
+	} else if home, err := os.UserHomeDir(); err == nil && home != "" {
+		defaultPath := filepath.Join(home, ".config", "mcp-sim", "config.yaml")
 		_ = loadFile(defaultPath, &cfg) // ignore error if missing
 	}
 
