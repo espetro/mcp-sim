@@ -20,7 +20,7 @@ linters:
         text: "G204|G304"
       - linters:
           - errcheck
-        text: "fmt.Fprintln"
+        text: "fmt.Fprintln|fmt.Fprint"
 
 linters-settings:
   errcheck:
