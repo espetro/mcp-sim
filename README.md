@@ -100,7 +100,7 @@ For Tailscale-based remote access, see [docs/tailscale.md](docs/tailscale.md).
 
 - [Architecture](docs/architecture.md) — adapter model and separation of concerns
 - [Tailscale setup](docs/tailscale.md) — running over Tailscale
-- [launchd](docs/launchd.md) — macOS service management
+- [Running as a service](docs/service.md) — install as a native OS service (launchd/systemd/Windows Service)
 - [Adding a platform](docs/adding-platform.md) — implementing the Platform interface
 
 ## License

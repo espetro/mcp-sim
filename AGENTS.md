@@ -27,7 +27,7 @@ build time via `-ldflags "-X .../internal/version.Version=..."`.
 |----------|---------|
 | `docs/architecture.md` | Adapter model + separation of concerns |
 | `docs/tailscale.md` | Network deployment over Tailscale |
-| `docs/launchd.md` | macOS service management |
+| `docs/service.md` | Running mcp-sim as a native OS service (launchd/systemd/Windows Service) |
 | `docs/adding-platform.md` | Implementing new Platform adapters |
 | `CONTRIBUTING.md` | PR process + load-bearing separation rule |
 | `pkg/contract/platform.go` | Platform interface |
