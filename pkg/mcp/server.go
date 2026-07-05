@@ -118,7 +118,7 @@ func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.
 	}) (*mcp.CallToolResult, struct{ Ready bool }, error) {
 		timeout := time.Duration(in.Timeout) * time.Second
 		if timeout == 0 {
-			timeout = 180 * time.Second
+			timeout = 60 * time.Second
 		}
 		if err := core.AwaitDeviceReady(ctx, registry, in.Platform, in.Target, timeout); err != nil {
 			return nil, struct{ Ready bool }{}, err

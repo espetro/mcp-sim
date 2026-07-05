@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
-	"strings"
 	"time"
 
 	"github.com/espetro/mcp-sim/internal/config"
@@ -184,9 +183,8 @@ func (p *Platform) Wipe(ctx context.Context, target string) error {
 // OpenURL opens a URL on the simulator.
 func (p *Platform) OpenURL(ctx context.Context, target, url string) error {
 	cmd := p.xcrun(ctx, "simctl", "openurl", target, url)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("simctl openurl %s %s: %w: %s", target, url, err, strings.TrimSpace(string(out)))
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("simctl openurl %s %s: %w", target, url, err)
 	}
 	return nil
 }

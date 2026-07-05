@@ -14,9 +14,11 @@ We use a [GitHub project](https://github.com/users/espetro/projects/20) as proje
 
 Issues #1–#21 cover M1 milestone tasks. M2 hardening tracked separately.
 
-For release-specific docs (current version, what's in each release,
-release procedure) see `docs/releases/` — never inline release content in
-this file.
+## Current release
+
+v0.1.0 — initial MVP. Branch `main` holds released commits. Use `develop` for
+new work. Versions live in `internal/version/version.go` and are injected at
+build time via `-ldflags "-X .../internal/version.Version=..."`.
 
 ## Key Documentation
 
@@ -26,7 +28,6 @@ this file.
 | `docs/tailscale.md` | Network deployment over Tailscale |
 | `docs/launchd.md` | macOS service management |
 | `docs/adding-platform.md` | Implementing new Platform adapters |
-| `docs/releases/` | Release notes, version history, release procedure |
 | `CONTRIBUTING.md` | PR process + load-bearing separation rule |
 | `pkg/contract/platform.go` | Platform interface |
 | `pkg/contract/controller.go` | Controller interface |

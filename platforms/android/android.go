@@ -5,12 +5,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -20,12 +18,10 @@ import (
 
 // Platform implements contract.Platform for Android Emulators via adb/emulator.
 type Platform struct {
-	mu          sync.Mutex
 	androidHome string
 	javaHome   string
 	emulatorBin string
-	avdPortMap  map[string]int    // AVD name → port
-	avdProc     map[string]*os.Process // AVD name → spawned emulator process
+	avdPortMap  map[string]int // AVD name → port
 }
 
 // New creates a new Android platform adapter.
@@ -73,7 +69,6 @@ func New(cfg config.AndroidConfig) (*Platform, error) {
 		javaHome:    javaHome,
 		emulatorBin: emulatorBin,
 		avdPortMap:  make(map[string]int),
-		avdProc:     make(map[string]*os.Process),
 	}, nil
 }
 
@@ -168,10 +163,6 @@ func (p *Platform) List(ctx context.Context) ([]contract.Device, error) {
 
 // Start launches an emulator for the given AVD.
 // Uses SysProcAttr{Setpgid:true} so the emulator survives parent death.
-//
-// The spawn is intentionally detached from the request context: the emulator
-// must outlive the originating MCP tool call. `ctx` is only used to bound the
-// readiness-poll loop.
 func (p *Platform) Start(ctx context.Context, target string, opts contract.StartOpts) (contract.Device, error) {
 	port := opts.Port
 	if port == 0 {
@@ -184,23 +175,13 @@ func (p *Platform) Start(ctx context.Context, target string, opts contract.Start
 		args = append(args, "-no-window")
 	}
 
-	// Detach from request ctx: use context.Background() (not the request
-	// ctx) so cancelling the MCP request does NOT kill the emulator.
-	// The emulator is killed only by Stop() or by the server's ShutdownAll().
-	cmd := exec.CommandContext(context.Background(), p.emulatorBin, args...)
-	cmd.Env = p.env()
+	cmd := p.emulatorCmd(ctx, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	cmd.Stdin = nil
-	cmd.Stdout = io.Discard
-	cmd.Stderr = io.Discard
 	if err := cmd.Start(); err != nil {
 		return contract.Device{}, fmt.Errorf("emulator start: %w", err)
 	}
 
-	p.mu.Lock()
 	p.avdPortMap[target] = port
-	p.avdProc[target] = cmd.Process
-	p.mu.Unlock()
 	serial := fmt.Sprintf("emulator-%d", port)
 
 	// Wait for adb to register the device.
@@ -224,34 +205,13 @@ func (p *Platform) Start(ctx context.Context, target string, opts contract.Start
 }
 
 // Stop stops an emulator.
-//
-// Uses the tracked PID first (guaranteed SIGKILL on the process group), then
-// falls back to `adb emu kill` for emulators we didn't spawn ourselves.
-// Both strategies are attempted because adb emu kill can be racy when the
-// emulator is still finishing boot.
 func (p *Platform) Stop(ctx context.Context, target string) error {
-	p.mu.Lock()
-	port := p.avdPortMap[target]
-	proc := p.avdProc[target]
-	delete(p.avdPortMap, target)
-	delete(p.avdProc, target)
-	p.mu.Unlock()
-
-	// 1. Direct kill via tracked PID (process group) — most reliable.
-	if proc != nil {
-		// Negative PID = kill the entire process group (Setpgid:true).
-		if err := syscall.Kill(-proc.Pid, syscall.SIGTERM); err != nil {
-			// Process may already be gone; fall through to adb fallback.
-			_ = syscall.Kill(proc.Pid, syscall.SIGKILL)
-		}
+	port, ok := p.avdPortMap[target]
+	if !ok {
+		return fmt.Errorf("no port mapping for AVD: %s", target)
 	}
-
-	// 2. adb emu kill — covers the case where another process spawned it.
-	if port != 0 {
-		serial := fmt.Sprintf("emulator-%d", port)
-		// Use a fresh context so the request-ctx cancel doesn't preempt us.
-		_ = exec.CommandContext(context.Background(), "adb", "-s", serial, "emu", "kill").Run()
-	}
+	serial := fmt.Sprintf("emulator-%d", port)
+	_ = p.adbCmd(ctx, "-s", serial, "emu", "kill").Run()
 	return nil
 }
 
@@ -336,19 +296,11 @@ func (p *Platform) Wipe(ctx context.Context, target string) error {
 
 // OpenURL opens a deep link on the emulator.
 func (p *Platform) OpenURL(ctx context.Context, target, url string) error {
-	p.mu.Lock()
-	port := p.avdPortMap[target]
-	p.mu.Unlock()
-	if port == 0 {
-		return fmt.Errorf("no port mapping for AVD: %s (did you boot it first?)", target)
+	port, ok := p.avdPortMap[target]
+	if !ok {
+		return fmt.Errorf("no port mapping for AVD: %s", target)
 	}
 	serial := fmt.Sprintf("emulator-%d", port)
-	// Run detached from request ctx — short-lived but we still want a
-	// self-contained error message including stderr.
-	cmd := exec.CommandContext(context.Background(), "adb", "-s", serial, "shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", url)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("open_url on %s: %w: %s", target, err, strings.TrimSpace(string(out)))
-	}
-	return nil
+	cmd := p.adbCmd(ctx, "-s", serial, "shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", url)
+	return cmd.Run()
 }

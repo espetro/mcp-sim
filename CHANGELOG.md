@@ -20,24 +20,10 @@ Nothing yet.
 ### Security
 -->
 
-## [Unreleased]
-
-Nothing yet.
-
-<!--
-## [X.Y.Z] - YYYY-MM-DD
-
-### Added
-### Changed
-### Deprecated
-### Removed
-### Fixed
-### Security
--->
-
 ## [0.1.1] - 2026-07-05
 
 ### Fixed
+
 - **Android emulator killed by request ctx** — `exec.CommandContext(reqCtx)` in `platforms/android.Start()` was tying the emulator process lifetime to the MCP request. Cancelling the request (which the SDK does on response) sent SIGKILL to the emulator shortly after boot_device returned. Now spawned with `exec.CommandContext(context.Background(), ...)`.
 - **Android emulator stdio inherited from server** — if the server is backgrounded with a closed stdout/stderr pipe, the emulator gets SIGPIPE on its first log line. stdio now redirected to `io.Discard`.
 - **`agent-device` controller restoration** — initial v0.1.0 controller was tested against an older agent-device v0.14 that didn't ship the `proxy` subcommand. v0.1.1 restores proxy-spawning behavior using `agent-device proxy --port N --host 127.0.0.1 [--daemon-auth-token ...]`, matching agent-device v0.18+ (the current version). PID tracking + SIGTERM-on-stop pattern, same as the Android emulator.
@@ -48,6 +34,7 @@ Nothing yet.
 - **AGENTS.md release content** — removed the `## Current release` section (went stale at every release); release docs now live in `docs/releases/` and AGENTS.md references them.
 
 ### Added
+
 - `docs/releases/v0.1.0.md` — release notes for the v0.1.0 tag.
 - `.agents/plans/2026-07-05-v0.1.0-integration-test.md` — integration test report.
 - `.agents/plans/2026-07-05-v0.1.1-release.md` — release plan for v0.1.1.
@@ -57,6 +44,7 @@ Nothing yet.
 ## [0.1.0] - 2026-07-05
 
 ### Added
+
 - MCP server with streamable HTTP transport (`/mcp`) and stdio transport (`mcp` subcommand)
 - iOS Simulator adapter via `xcrun simctl`
 - Android Emulator adapter via `emulator` + `adb`

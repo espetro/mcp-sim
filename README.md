@@ -1,23 +1,72 @@
 # mcp-sim
 
-> **MCP server for iOS Simulator and Android Emulator lifecycle on a remote macOS host.**
+**MCP server for mobile emulator lifecycle**
 
-Boot on demand, verify via your agent, tear down on completion. Emulators live exactly as long as the work that needs them.
+`mcp-sim` turns remote iOS Simulators and Android Emulators into first-class MCP tools. Boot on demand, verify via your favorite agent, tear down on completion — emulators live exactly as long as the work that needs them.
 
-## Features
+## Prerequisites
 
-- **Lifecycle-only by design** Boot, stop, wipe, deep-link. Tap, screenshot, and view hierarchy are deliberately out of scope; those belong to verification controllers like [agent-device](https://github.com/callstack/agent-device).
-- **Lazy adapter registration** iOS, Android, and agent-device are auto-detected at startup. The same binary serves Swift-only, Android-only, or full-stack users.
-- **MCP-over-HTTP and stdio** Long-lived service for remote hosts, stdio transport for per-agent spawn, both via the official [modelcontextprotocol/go-sdk](https://github.com/modelcontextprotocol/go-sdk).
+mcp-sim is resilient: each platform adapter is auto-detected at startup, and a missing tool just means that platform's tools are skipped. You can run the server with **only iOS**, **only Android**, or **both**.
 
-## Quick start
+For full functionality on macOS, install:
+
+| Tool | Required for | Install |
+|------|---|---|
+| Xcode + iOS Simulators | iOS tools | `xcode-select --install` (or App Store → Xcode) |
+| Android SDK + `emulator` + `adb` | Android tools | Install [Android Studio](https://developer.android.com/studio) or `brew install --cask android-commandlinetools` |
+| `agent-device` | verification controller | `brew install agent-device` (or see [agent-device docs](https://github.com/espetro/agent-device)) |
+
+Each tool is checked via PATH probing at server startup. If `xcode-select -p` succeeds the iOS adapter registers; if `emulator` or `adb` is on PATH, the Android adapter registers; if `agent-device` resolves, the controller registers. Otherwise the relevant MCP tools are simply absent — the server still starts.
+
+To force a platform off:
+
+```bash
+MCPSIM_IOS_ENABLED=false mcp-sim serve
+MCPSIM_ANDROID_ENABLED=false mcp-sim serve
+MCPSIM_AGENT_DEVICE_ENABLED=false mcp-sim serve
+```
+
+## Install
+
+### Homebrew (macOS/Linux)
 
 ```bash
 brew install espetro/mcp-sim/mcp-sim
+```
+
+### go install
+
+```bash
+go install github.com/espetro/mcp-sim/cmd/mcp-sim@latest
+```
+
+### GitHub Releases
+
+Download pre-built binaries from [github.com/espetro/mcp-sim/releases](https://github.com/espetro/mcp-sim/releases).
+
+## Quick start
+
+Start the server:
+
+```bash
 mcp-sim serve --listen :9090
 ```
 
-Wire it into your MCP client (Claude Code, Cursor, etc.):
+Show all commands:
+
+```bash
+mcp-sim --help
+mcp-sim serve --help
+```
+
+Show version:
+
+```bash
+mcp-sim version
+# mcp-sim 0.1.0 (commit, date)
+```
+
+Configure your MCP client (Claude Code, Cursor, etc.):
 
 ```json
 {
@@ -30,62 +79,29 @@ Wire it into your MCP client (Claude Code, Cursor, etc.):
 }
 ```
 
-<details>
-<summary>Other install methods</summary>
+For Tailscale-based remote access, see [docs/tailscale.md](docs/tailscale.md).
 
-### `go install`
+## Tools
 
-```bash
-go install github.com/espetro/mcp-sim/cmd/mcp-sim@latest
-```
-
-### Pre-built binaries
-
-Download for darwin/linux/windows amd64/arm64 from
-[github.com/espetro/mcp-sim/releases](https://github.com/espetro/mcp-sim/releases).
-
-### Build from source
-
-```bash
-git clone https://github.com/espetro/mcp-sim.git
-cd mcp-sim
-task build   # produces ./bin/mcp-sim
-```
-
-</details>
-
-## Requirements
-
-| What | Why | Install |
-|------|-----|---------|
-| macOS host | emulators run on Mac | — |
-| Xcode (latest stable) | iOS Simulator | App Store or `xcode-select --install` |
-| Android SDK with `emulator` + `adb` on PATH | Android Emulator | [Android Studio](https://developer.android.com/studio) or `brew install --cask android-commandlinetools` |
-| [agent-device](https://github.com/callstack/agent-device) v0.18+ | verification controller | `npm install -g agent-device@latest` |
-
-If any tool is missing at startup, that platform's MCP tools are simply absent. The server still starts and the rest works. Force-disable with `MCPSIM_IOS_ENABLED=false`, `MCPSIM_ANDROID_ENABLED=false`, or `MCPSIM_AGENT_DEVICE_ENABLED=false`.
-
-## What sets it apart
-
-- **Infrastructure vs verification split** mcp-sim owns emulator lifecycle (power, state, data wipe, deep-link). Verification (taps, screenshots, accessibility) lives in controllers. The split is enforced in `CONTRIBUTING.md`; PRs that conflate them are closed.
-- **Tailscale-friendly by default** Bind to your Mac's Tailscale IP and an agent on a Linux VPS can drive emulators over the tailnet. See [docs/tailscale.md](docs/tailscale.md).
-- **Single static binary** `CGO_ENABLED=0`, no runtime dependencies, ~12 MB. Ships via Homebrew tap, `go install`, and GitHub Releases.
-
-## Skills
-
-For AI agents setting up or driving mcp-sim:
-
-- **Agent setup recipe**: see `.agents/plans/` (gitignored, local-only references for each milestone, e.g. `2026-07-05-v0.1.0-integration-test.md`)
-- **MCP-server-builder conventions**: see the [`mcp-builder`](https://github.com/modelcontextprotocol/go-sdk) reference
+| Tool | Description |
+|------|-------------|
+| `list_devices` | List all available emulators/simulators |
+| `boot_device` | Boot a device by platform and target |
+| `stop_device` | Stop a running device |
+| `get_state` | Get device state |
+| `await_ready` | Wait for device to finish booting |
+| `wipe_device` | Wipe device user data |
+| `open_url` | Open a deep link on a device |
+| `start_controller` | Start a controller proxy daemon |
+| `stop_controller` | Stop a controller proxy daemon |
+| `controller_status` | Check controller proxy status |
 
 ## Docs
 
-- [Architecture](docs/architecture.md) adapter model, separation of concerns, resilience
-- [Tailscale setup](docs/tailscale.md) remote-host deployment
-- [launchd](docs/launchd.md) macOS service management
-- [Adding a platform](docs/adding-platform.md) implementing the `Platform` interface
-- [Releases](docs/releases/) per-version release notes
-- [CHANGELOG](CHANGELOG.md) full change log
+- [Architecture](docs/architecture.md) — adapter model and separation of concerns
+- [Tailscale setup](docs/tailscale.md) — running over Tailscale
+- [launchd](docs/launchd.md) — macOS service management
+- [Adding a platform](docs/adding-platform.md) — implementing the Platform interface
 
 ## License
 

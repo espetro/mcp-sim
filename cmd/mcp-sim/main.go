@@ -207,11 +207,7 @@ func serveImpl(prog, listenAddr, configPath string) error {
 		}
 	}
 	if cfg.Controllers.AgentDevice.Enabled {
-		if ctrl := agentdevice.New(cfg.Controllers.AgentDevice); ctrl != nil {
-			registry.RegisterController(ctrl)
-		} else {
-			logger.Warn("agent-device controller disabled — binary not detected, skipping controller tools")
-		}
+		registry.RegisterController(agentdevice.New(cfg.Controllers.AgentDevice))
 	}
 
 	mcpServer := mcp.NewServer(registry, lifecycle, logger)
@@ -272,9 +268,7 @@ func mcpImpl(prog, configPath string) error {
 		}
 	}
 	if cfg.Controllers.AgentDevice.Enabled {
-		if ctrl := agentdevice.New(cfg.Controllers.AgentDevice); ctrl != nil {
-			registry.RegisterController(ctrl)
-		}
+		registry.RegisterController(agentdevice.New(cfg.Controllers.AgentDevice))
 	}
 
 	mcpServer := mcp.NewServer(registry, lifecycle, logger)
