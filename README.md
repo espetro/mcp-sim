@@ -4,6 +4,28 @@
 
 `mcp-sim` turns remote iOS Simulators and Android Emulators into first-class MCP tools. Boot on demand, verify via your favorite agent, tear down on completion — emulators live exactly as long as the work that needs them.
 
+## Prerequisites
+
+mcp-sim is resilient: each platform adapter is auto-detected at startup, and a missing tool just means that platform's tools are skipped. You can run the server with **only iOS**, **only Android**, or **both**.
+
+For full functionality on macOS, install:
+
+| Tool | Required for | Install |
+|------|---|---|
+| Xcode + iOS Simulators | iOS tools | `xcode-select --install` (or App Store → Xcode) |
+| Android SDK + `emulator` + `adb` | Android tools | Install [Android Studio](https://developer.android.com/studio) or `brew install --cask android-commandlinetools` |
+| `agent-device` | verification controller | `brew install agent-device` (or see [agent-device docs](https://github.com/espetro/agent-device)) |
+
+Each tool is checked via PATH probing at server startup. If `xcode-select -p` succeeds the iOS adapter registers; if `emulator` or `adb` is on PATH, the Android adapter registers; if `agent-device` resolves, the controller registers. Otherwise the relevant MCP tools are simply absent — the server still starts.
+
+To force a platform off:
+
+```bash
+MCPSIM_IOS_ENABLED=false mcp-sim serve
+MCPSIM_ANDROID_ENABLED=false mcp-sim serve
+MCPSIM_AGENT_DEVICE_ENABLED=false mcp-sim serve
+```
+
 ## Install
 
 ### Homebrew (macOS/Linux)
@@ -28,6 +50,20 @@ Start the server:
 
 ```bash
 mcp-sim serve --listen :9090
+```
+
+Show all commands:
+
+```bash
+mcp-sim --help
+mcp-sim serve --help
+```
+
+Show version:
+
+```bash
+mcp-sim version
+# mcp-sim 0.1.0 (commit, date)
 ```
 
 Configure your MCP client (Claude Code, Cursor, etc.):
