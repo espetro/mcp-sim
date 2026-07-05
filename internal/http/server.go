@@ -29,8 +29,9 @@ func New(addr string, handler http.Handler) *Server {
 // It handles SIGINT and SIGTERM for graceful shutdown.
 func (s *Server) ListenAndServe(ctx context.Context) error {
 	srv := &http.Server{
-		Addr:    s.Addr,
-		Handler: s.Handler,
+		Addr:              s.Addr,
+		Handler:           s.Handler,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	// Wire healthz endpoint.
