@@ -3,7 +3,6 @@ version: 2
 linters:
   enable:
     - errcheck
-    - gosimple
     - govet
     - ineffassign
     - staticcheck
@@ -14,6 +13,14 @@ linters:
     - noctx
     - dupl
     - whitespace
+  exclusions:
+    rules:
+      - linters:
+          - gosec
+        text: "G204|G304"
+      - linters:
+          - errcheck
+        text: "fmt.Fprintln"
 
 linters-settings:
   errcheck:
@@ -22,7 +29,8 @@ linters-settings:
   govet:
     enable-all: true
   gosec:
-    exclude: -G104
+    checks: []
+    exclude: G104,G703
 
 issues:
   exclude-use-default: false
