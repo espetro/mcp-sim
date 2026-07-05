@@ -38,10 +38,11 @@ func (l *Lifecycle) BootDevice(ctx context.Context, platformName, target string,
 		return contract.Device{}, err
 	}
 
-	// Wait for device to become ready.
+	// Wait for device to become ready. Default 120s accommodates slower
+	// hardware (Android emulator cold-boot, iOS Simulator first launch).
 	timeout := opts.Timeout
 	if timeout == 0 {
-		timeout = 60 * time.Second
+		timeout = 120 * time.Second
 	}
 	if err := p.AwaitReady(ctx, target, timeout); err != nil {
 		return dev, &ToolError{Code: contract.ErrTimeout, Msg: "device did not become ready: " + target}
