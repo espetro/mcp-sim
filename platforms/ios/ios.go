@@ -19,13 +19,18 @@ type Platform struct {
 }
 
 // New creates a new iOS platform adapter.
+//
+// Resilient to missing Xcode toolchain: returns (nil, nil) when xcode-select
+// cannot locate a developer directory. Callers should treat a nil result as
+// "skip iOS registration" rather than a fatal error.
 func New(ctx context.Context, cfg config.IOSConfig) (*Platform, error) {
 	devDir := cfg.DeveloperDir
 	if devDir == "" {
-		// Probe default developer dir.
+		// Probe default developer dir. If Xcode isn't installed, swallow the
+		// error — caller will skip this platform with a warning.
 		out, err := exec.CommandContext(ctx, "xcode-select", "-p").Output()
 		if err != nil {
-			return nil, fmt.Errorf("xcode-select -p: %w", err)
+			return nil, nil
 		}
 		devDir = string(bytes.TrimSpace(out))
 	}
@@ -47,6 +52,16 @@ func (p *Platform) simctlJSON(ctx context.Context) ([]byte, error) {
 	return cmd.Output()
 }
 
+// simctlDevice matches one entry in simctl's `list devices --json` output.
+// simctl groups devices by runtime: {"devices": {"iOS-18-0": [...], "iOS-17-5": [...]}}
+type simctlDevice struct {
+	UDID           string `json:"udid"`
+	Name           string `json:"name"`
+	DeviceTypeName string `json:"deviceTypeName"`
+	State          string `json:"state"`
+	RuntimeName    string `json:"runtimeName"`
+}
+
 // List returns all iOS simulators.
 func (p *Platform) List(ctx context.Context) ([]contract.Device, error) {
 	out, err := p.simctlJSON(ctx)
@@ -54,31 +69,31 @@ func (p *Platform) List(ctx context.Context) ([]contract.Device, error) {
 		return nil, fmt.Errorf("simctl list: %w", err)
 	}
 
+	// simctl's output is {"devices": {"<runtime>": [{...}, ...]}}. The
+	// RuntimeName isn't always populated on each device, so we fall back to
+	// the outer map key.
 	var result struct {
-		Devices []struct {
-			UDID           string `json:"udid"`
-			Name           string `json:"name"`
-			DeviceTypeName string `json:"deviceTypeName"`
-			State          string `json:"state"`
-			RuntimeName    string `json:"runtimeName"`
-		} `json:"devices"`
+		Devices map[string][]simctlDevice `json:"devices"`
 	}
 	if err := json.Unmarshal(out, &result); err != nil {
 		return nil, fmt.Errorf("parse simctl json: %w", err)
 	}
 
 	var devs []contract.Device
-	for _, d := range result.Devices {
-		if d.RuntimeName == "" {
-			continue // skip base device definitions
+	for runtime, list := range result.Devices {
+		for _, d := range list {
+			rt := d.RuntimeName
+			if rt == "" {
+				rt = runtime
+			}
+			devs = append(devs, contract.Device{
+				ID:       d.UDID,
+				Name:     d.Name,
+				Platform: "ios",
+				State:    parseSimState(d.State),
+				Version:  rt,
+			})
 		}
-		devs = append(devs, contract.Device{
-			ID:       d.UDID,
-			Name:     d.Name,
-			Platform: "ios",
-			State:    parseSimState(d.State),
-			Version:  d.RuntimeName,
-		})
 	}
 	return devs, nil
 }
@@ -89,7 +104,18 @@ func (p *Platform) Start(ctx context.Context, target string, opts contract.Start
 	if err := cmd.Run(); err != nil {
 		return contract.Device{}, fmt.Errorf("simctl boot %s: %w", target, err)
 	}
-	return contract.Device{ID: target, Platform: "ios", State: contract.DeviceStateBooting}, nil
+	// Look up the device name from simctl's list so callers get a useful
+	// description back instead of an empty Name.
+	name := ""
+	if devs, err := p.List(ctx); err == nil {
+		for _, d := range devs {
+			if d.ID == target {
+				name = d.Name
+				break
+			}
+		}
+	}
+	return contract.Device{ID: target, Name: name, Platform: "ios", State: contract.DeviceStateBooting}, nil
 }
 
 // Stop shuts down a simulator.
@@ -106,19 +132,18 @@ func (p *Platform) State(ctx context.Context, target string) (contract.DeviceSta
 		return contract.DeviceStateUnknown, fmt.Errorf("simctl list booted: %w", err)
 	}
 
+	// Same nested structure as List(): {"devices": {"<runtime>": [...]}}.
 	var result struct {
-		Devices []struct {
-			UDID  string `json:"udid"`
-			State string `json:"state"`
-		} `json:"devices"`
+		Devices map[string][]simctlDevice `json:"devices"`
 	}
 	if err := json.Unmarshal(out, &result); err != nil {
 		return contract.DeviceStateUnknown, fmt.Errorf("parse simctl json: %w", err)
 	}
-
-	for _, d := range result.Devices {
-		if d.UDID == target {
-			return parseSimState(d.State), nil
+	for _, list := range result.Devices {
+		for _, d := range list {
+			if d.UDID == target {
+				return parseSimState(d.State), nil
+			}
 		}
 	}
 	return contract.DeviceStateStopped, nil

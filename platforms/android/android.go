@@ -25,7 +25,22 @@ type Platform struct {
 }
 
 // New creates a new Android platform adapter.
+//
+// Resilient to missing Android SDK: returns (nil, nil) when neither the
+// emulator nor adb binary can be located. Callers should treat a nil result
+// as "skip Android registration" rather than a fatal error.
 func New(cfg config.AndroidConfig) (*Platform, error) {
+	// First check: does the emulator binary exist (in PATH or explicit path)?
+	if cfg.EmulatorBin == "" {
+		if _, err := exec.LookPath("emulator"); err != nil {
+			// Try adb as a fallback signal — adb alone without an emulator AVD
+			// is still useful for inspecting already-running devices.
+			if _, err2 := exec.LookPath("adb"); err2 != nil {
+				return nil, nil
+			}
+		}
+	}
+
 	androidHome := cfg.AndroidHome
 	if androidHome == "" {
 		androidHome = os.Getenv("ANDROID_HOME")
@@ -51,7 +66,7 @@ func New(cfg config.AndroidConfig) (*Platform, error) {
 
 	return &Platform{
 		androidHome: androidHome,
-		javaHome:   javaHome,
+		javaHome:    javaHome,
 		emulatorBin: emulatorBin,
 		avdPortMap:  make(map[string]int),
 	}, nil
