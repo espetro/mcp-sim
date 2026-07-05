@@ -44,7 +44,7 @@ In `internal/config/config.go`, add `MyPlatformConfig` and wire it up.
 
 - Do NOT add verification tools (tap, screenshot, getTree) — those belong in Controllers
 - Implement `AwaitReady` for a good developer experience
-- Use `SysProcAttr{Setpgid:true}` when spawning long-lived processes
+- For long-lived spawned processes, set process attrs via a package-private `setProcAttr(cmd *exec.Cmd)` helper split across `procattr_unix.go` (`//go:build !windows`, `Setpgid:true`) and `procattr_windows.go` (`//go:build windows`, `CreationFlags: CREATE_NEW_PROCESS_GROUP`) — see `platforms/android/procattr_*.go`. `Setpgid` is Unix-only; any platform adapter targeting Windows needs this split.
 - Add integration tests gated on `MCPSIM_INTEGRATION=1`
 
 ## Testing
