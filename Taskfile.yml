@@ -3,6 +3,12 @@ version: '3'
 vars:
   GO_VERSION:
     sh: grep '^go ' go.mod | awk '{print $2}'
+  VERSION:
+    sh: git describe --tags --always --dirty 2>/dev/null || echo "0.1.0"
+  COMMIT:
+    sh: git rev-parse --short HEAD 2>/dev/null || echo "none"
+  DATE:
+    sh: date -u +%Y-%m-%dT%H:%M:%SZ
 
 env:
   GOTOOLCHAIN: go{{.GO_VERSION}}
@@ -16,7 +22,7 @@ tasks:
   build:
     desc: Compile mcp-sim
     cmds:
-      - go build -ldflags="-s -w" -o bin/mcp-sim ./cmd/mcp-sim
+      - go build -ldflags="-s -w -X github.com/espetro/mcp-sim/internal/version.Version={{.VERSION}} -X github.com/espetro/mcp-sim/internal/version.Commit={{.COMMIT}} -X github.com/espetro/mcp-sim/internal/version.Date={{.DATE}}" -o bin/mcp-sim ./cmd/mcp-sim
 
   test:
     desc: Run unit tests with race detector
@@ -64,3 +70,4 @@ tasks:
     desc: Dry-run release locally
     cmds:
       - goreleaser release --clean --skip publish --skip announce
+
