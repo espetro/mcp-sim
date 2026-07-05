@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/espetro/mcp-sim/internal/core"
+	"github.com/espetro/mcp-sim/internal/version"
 	"github.com/espetro/mcp-sim/pkg/contract"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -22,7 +23,7 @@ func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.
 	s := mcp.NewServer(&mcp.Implementation{
 		Name:    "mcp-sim",
 		Title:   "MCP Simulator Server",
-		Version: "dev",
+		Version: version.Version,
 	}, &mcp.ServerOptions{
 		Instructions: "Mobile emulator/simulator control server.",
 	})
@@ -88,6 +89,41 @@ func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.
 		}
 		state, err := core.GetDeviceState(ctx, registry, in.Platform, in.Target)
 		return nil, contract.Device{Platform: in.Platform, ID: in.Target, State: state}, err
+	})
+
+	// get_state
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "get_state",
+		Description: "Get the current state of a device (stopped/booting/running/error).",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in struct {
+		Platform string `json:"platform"`
+		Target   string `json:"target"`
+	}) (*mcp.CallToolResult, struct {
+		State string `json:"state"`
+	}, error) {
+		state, err := core.GetDeviceState(ctx, registry, in.Platform, in.Target)
+		return nil, struct {
+			State string `json:"state"`
+		}{State: string(state)}, err
+	})
+
+	// await_ready
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "await_ready",
+		Description: "Block until the device is fully booted, or the timeout fires.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in struct {
+		Platform string `json:"platform"`
+		Target   string `json:"target"`
+		Timeout  int    `json:"timeout,omitempty"`
+	}) (*mcp.CallToolResult, struct{ Ready bool }, error) {
+		timeout := time.Duration(in.Timeout) * time.Second
+		if timeout == 0 {
+			timeout = 60 * time.Second
+		}
+		if err := core.AwaitDeviceReady(ctx, registry, in.Platform, in.Target, timeout); err != nil {
+			return nil, struct{ Ready bool }{}, err
+		}
+		return nil, struct{ Ready bool }{Ready: true}, nil
 	})
 
 	// open_url
