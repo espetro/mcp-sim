@@ -20,6 +20,38 @@ Nothing yet.
 ### Security
 -->
 
+## [Unreleased]
+
+Nothing yet.
+
+<!--
+## [X.Y.Z] - YYYY-MM-DD
+
+### Added
+### Changed
+### Deprecated
+### Removed
+### Fixed
+### Security
+-->
+
+## [0.1.1] - 2026-07-05
+
+### Fixed
+- **Android emulator killed by request ctx** — `exec.CommandContext(reqCtx)` in `platforms/android.Start()` was tying the emulator process lifetime to the MCP request. Cancelling the request (which the SDK does on response) sent SIGKILL to the emulator shortly after boot_device returned. Now spawned with `exec.CommandContext(context.Background(), ...)`.
+- **Android emulator stdio inherited from server** — if the server is backgrounded with a closed stdout/stderr pipe, the emulator gets SIGPIPE on its first log line. stdio now redirected to `io.Discard`.
+- **`agent-device proxy` subcommand doesn't exist** — refactored `controllers/agentdevice` as a presence checker (the original "proxy launcher" concept was based on a wrong assumption about agent-device's CLI).
+- **`open_url` errors had no context** — `cmd.Run()` returned just `exit status 1`. Now uses `CombinedOutput()` and includes stderr so callers see e.g. "Activity not started, unable to resolve Intent".
+- **`stop_device` didn't reliably terminate Android emulator** — relied on `adb emu kill` which can race. Now tracks spawned PIDs and SIGTERMs the process group directly.
+- **`await_ready` default timeout too short** — bumped from 60s to 180s (iOS Simulator boot on slower Macs takes ~90s).
+- **`boot_device` default timeout too short** — bumped from 60s to 120s in lifecycle.go.
+- **AGENTS.md release content** — removed the `## Current release` section (went stale at every release); release docs now live in `docs/releases/` and AGENTS.md references them.
+
+### Added
+- `docs/releases/v0.1.0.md` — release notes for the v0.1.0 tag.
+- `.agents/plans/2026-07-05-v0.1.0-integration-test.md` — integration test report.
+- `.agents/plans/2026-07-05-v0.1.1-release.md` — release plan for v0.1.1.
+
 ## [0.1.0] - 2026-07-05
 
 ### Added
@@ -37,5 +69,6 @@ Nothing yet.
 - Cross-compiled releases via GoReleaser (darwin/linux/windows × amd64/arm64)
 - Homebrew tap `espetro/homebrew-mcp-sim` (when published)
 
-[Unreleased]: https://github.com/espetro/mcp-sim/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/espetro/mcp-sim/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/espetro/mcp-sim/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/espetro/mcp-sim/releases/tag/v0.1.0
