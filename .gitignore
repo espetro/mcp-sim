@@ -1,6 +1,7 @@
 # Binaries
 bin/
 dist/
+site/
 *.exe
 *.exe~
 *.dll

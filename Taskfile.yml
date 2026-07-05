@@ -39,6 +39,16 @@ tasks:
     cmds:
       - go mod tidy
 
+  docs:
+    desc: Run docmd dev server for docs/ (live preview)
+    cmds:
+      - npx @docmd/core dev
+
+  docs-build:
+    desc: Build static docs site from docs/ (outputs to site/)
+    cmds:
+      - npx @docmd/core build
+
   validate:
     desc: Typecheck + lint + test (AI-agent parseable)
     run: when_changed
