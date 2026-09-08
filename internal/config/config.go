@@ -32,8 +32,22 @@ type PlatformsConfig struct {
 
 // IOSConfig configures the iOS platform adapter.
 type IOSConfig struct {
-	Enabled      bool   `yaml:"enabled"`       // MCPSIM_IOS_ENABLED
-	DeveloperDir string `yaml:"developer_dir"` // MCPSIM_DEVELOPER_DIR
+	Enabled      bool       `yaml:"enabled"`       // MCPSIM_IOS_ENABLED
+	DeveloperDir string     `yaml:"developer_dir"` // MCPSIM_DEVELOPER_DIR
+	Slim         SlimConfig `yaml:"slim"`
+}
+
+// SlimConfig configures the optional simslim integration (iOS only).
+// Slimming is never on by default: it disables simulator daemons that some
+// features (push, StoreKit, search) may need. See docs/simslim.md.
+type SlimConfig struct {
+	Enabled      bool     `yaml:"enabled"`       // MCPSIM_IOS_SLIM_ENABLED (probes simslim on PATH)
+	OnBoot       bool     `yaml:"on_boot"`       // MCPSIM_IOS_SLIM_ON_BOOT: slim during boot_device when enabled
+	Profile      string   `yaml:"profile"`       // MCPSIM_IOS_SLIM_PROFILE: path to profile JSON; empty = default slim
+	Except       []string `yaml:"except"`        // MCPSIM_IOS_SLIM_EXCEPT: category IDs to keep
+	Keep         []string `yaml:"keep"`          // MCPSIM_IOS_SLIM_KEEP: launchd labels to keep
+	BootTimeout  string   `yaml:"boot_timeout"`  // MCPSIM_IOS_SLIM_BOOT_TIMEOUT: SIMSLIM_BOOT_TIMEOUT passthrough
+	SpawnTimeout string   `yaml:"spawn_timeout"` // MCPSIM_IOS_SLIM_SPAWN_TIMEOUT: SIMSLIM_SPAWN_TIMEOUT passthrough
 }
 
 // AndroidConfig configures the Android platform adapter.
@@ -110,6 +124,27 @@ func Load() (Config, error) {
 	}
 	if v := os.Getenv("MCPSIM_DEVELOPER_DIR"); v != "" {
 		cfg.Platforms.IOS.DeveloperDir = v
+	}
+	if v := os.Getenv("MCPSIM_IOS_SLIM_ENABLED"); v != "" {
+		cfg.Platforms.IOS.Slim.Enabled, _ = strconv.ParseBool(v)
+	}
+	if v := os.Getenv("MCPSIM_IOS_SLIM_ON_BOOT"); v != "" {
+		cfg.Platforms.IOS.Slim.OnBoot, _ = strconv.ParseBool(v)
+	}
+	if v := os.Getenv("MCPSIM_IOS_SLIM_PROFILE"); v != "" {
+		cfg.Platforms.IOS.Slim.Profile = v
+	}
+	if v := os.Getenv("MCPSIM_IOS_SLIM_EXCEPT"); v != "" {
+		cfg.Platforms.IOS.Slim.Except = splitCSV(v)
+	}
+	if v := os.Getenv("MCPSIM_IOS_SLIM_KEEP"); v != "" {
+		cfg.Platforms.IOS.Slim.Keep = splitCSV(v)
+	}
+	if v := os.Getenv("MCPSIM_IOS_SLIM_BOOT_TIMEOUT"); v != "" {
+		cfg.Platforms.IOS.Slim.BootTimeout = v
+	}
+	if v := os.Getenv("MCPSIM_IOS_SLIM_SPAWN_TIMEOUT"); v != "" {
+		cfg.Platforms.IOS.Slim.SpawnTimeout = v
 	}
 	if v := os.Getenv("MCPSIM_ANDROID_ENABLED"); v != "" {
 		cfg.Platforms.Android.Enabled, _ = strconv.ParseBool(v)
