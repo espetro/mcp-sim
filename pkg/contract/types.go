@@ -30,6 +30,9 @@ type StartOpts struct {
 	NoWindow bool          `json:"no_window,omitempty"` // Headless mode
 	Port     int           `json:"port,omitempty"`      // Explicit port (Android)
 	Timeout  time.Duration `json:"timeout,omitempty"`   // Boot timeout
+	// Optimize overrides the configured optimizer default for this boot:
+	// nil = use config default, false = never slim, true = slim after boot.
+	Optimize *bool `json:"optimize,omitempty"`
 }
 
 // ProxyInfo holds the network address of a running controller proxy.
