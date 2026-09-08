@@ -16,6 +16,7 @@ import (
 // Platform implements contract.Platform for iOS Simulators via xcrun simctl.
 type Platform struct {
 	developerDir string
+	slim         *slimmer // nil when slim is disabled or simslim is absent
 }
 
 // New creates a new iOS platform adapter.
@@ -34,7 +35,12 @@ func New(ctx context.Context, cfg config.IOSConfig) (*Platform, error) {
 		}
 		devDir = string(bytes.TrimSpace(out))
 	}
-	return &Platform{developerDir: devDir}, nil
+	p := &Platform{developerDir: devDir}
+	// Slim is opt-in. NewSlimmer returns nil when simslim is absent or too
+	// old, so the server still starts and iOS tools still register; slim
+	// behavior is simply skipped (see ShouldOptimizeOnBoot).
+	p.slim = NewSlimmer(cfg.Slim)
+	return p, nil
 }
 
 // Name returns "ios".
@@ -177,7 +183,8 @@ func (p *Platform) Wipe(ctx context.Context, target string) error {
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("simctl erase %s: %w", target, err)
 	}
-	return nil
+	// Erase resets launchd overrides to stock; re-apply slim per config.
+	return p.ReSlimAfterWipe(ctx, target)
 }
 
 // OpenURL opens a URL on the simulator.
