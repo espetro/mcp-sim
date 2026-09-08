@@ -46,7 +46,7 @@ func NewSlimmer(cfg config.SlimConfig) *slimmer {
 
 // simslimVersion runs `simslim version` and returns e.g. "0.8.0".
 func simslimVersion(path string) (string, error) {
-	out, err := exec.Command(path, "version").Output()
+	out, err := exec.CommandContext(context.Background(), path, "version").Output() // #nosec G114 -- version probe is fast
 	if err != nil {
 		return "", err
 	}
@@ -207,6 +207,10 @@ func supportsPersistentOverrides(runtime string) bool {
 	}, runtime)
 	fields := strings.Fields(norm)
 	for _, f := range fields {
+		f = strings.TrimPrefix(strings.TrimPrefix(f, "iOS"), ".")
+		if f == "" {
+			continue
+		}
 		parts := strings.SplitN(f, ".", 3)
 		if len(parts) < 2 {
 			continue
