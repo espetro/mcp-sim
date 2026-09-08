@@ -44,6 +44,33 @@ func GetDeviceState(ctx context.Context, registry *Registry, platformName, targe
 	return state, nil
 }
 
+// GetOptimizerState returns the optimizer status (and live memory usage when
+// the device is booted) for a device, or (nil, nil, nil) when the platform
+// has no optimizer. Used by get_state to fold optimizer info into its output.
+func GetOptimizerState(ctx context.Context, registry *Registry, platformName, target string) (*contract.OptimizeStatus, *contract.ResourceUsage, error) {
+	p, ok := registry.PlatformByName(platformName)
+	if !ok {
+		return nil, nil, &ToolError{Code: contract.ErrUnsupportedPlatform, Msg: "platform not found: " + platformName}
+	}
+	opt, ok := p.(contract.Optimizer)
+	if !ok {
+		return nil, nil, nil
+	}
+	st, err := opt.OptimizeStatus(ctx, target)
+	if err != nil {
+		return nil, nil, err
+	}
+	var usage *contract.ResourceUsage
+	// Measure only works on a booted device; ignore errors (e.g. device just
+	// shut down) rather than failing get_state.
+	if state, err := p.State(ctx, target); err == nil && state == contract.DeviceStateRunning {
+		if m, err := opt.Measure(ctx, target); err == nil {
+			usage = &m
+		}
+	}
+	return &st, usage, nil
+}
+
 // StartController starts a controller.
 func StartController(ctx context.Context, registry *Registry, name string, cfg contract.StartConfig) (contract.ProxyInfo, error) {
 	c, ok := registry.ControllerByName(name)

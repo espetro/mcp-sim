@@ -51,11 +51,13 @@ func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.
 		NoWindow bool   `json:"no_window,omitempty"`
 		Port     int    `json:"port,omitempty"`
 		Timeout  int    `json:"timeout,omitempty"`
+		Optimize *bool  `json:"optimize,omitempty"`
 	}) (*mcp.CallToolResult, contract.Device, error) {
 		opts := contract.StartOpts{
 			NoWindow: in.NoWindow,
 			Port:     in.Port,
 			Timeout:  time.Duration(in.Timeout) * time.Second,
+			Optimize: in.Optimize,
 		}
 		dev, err := lifecycle.BootDevice(ctx, in.Platform, in.Target, opts)
 		return nil, dev, err
@@ -99,12 +101,34 @@ func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.
 		Platform string `json:"platform"`
 		Target   string `json:"target"`
 	}) (*mcp.CallToolResult, struct {
-		State string `json:"state"`
+		State     string                  `json:"state"`
+		Optimizer *GetStateOptimizerBlock `json:"optimizer,omitempty"`
 	}, error) {
 		state, err := core.GetDeviceState(ctx, registry, in.Platform, in.Target)
-		return nil, struct {
-			State string `json:"state"`
-		}{State: string(state)}, err
+		if err != nil {
+			return nil, struct {
+				State     string                  `json:"state"`
+				Optimizer *GetStateOptimizerBlock `json:"optimizer,omitempty"`
+			}{State: string(state)}, err
+		}
+		out := struct {
+			State     string                  `json:"state"`
+			Optimizer *GetStateOptimizerBlock `json:"optimizer,omitempty"`
+		}{State: string(state)}
+		if st, usage, err := core.GetOptimizerState(ctx, registry, in.Platform, in.Target); err == nil && st != nil {
+			out.Optimizer = &GetStateOptimizerBlock{
+				Slimmed:    st.Slimmed,
+				Persistent: st.Persistent,
+			}
+			if !st.Persistent && st.Slimmed {
+				out.Optimizer.Warning = "runtime cannot persist launchd overrides; state reverts to stock at next reboot"
+			}
+			if usage != nil {
+				out.Optimizer.PhysFootprintBytes = usage.PhysFootprintBytes
+				out.Optimizer.ProcessCount = usage.ProcessCount
+			}
+		}
+		return nil, out, nil
 	})
 
 	// await_ready
@@ -179,6 +203,15 @@ func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.
 	})
 
 	return &Server{impl: s, logger: logger}
+}
+
+// GetStateOptimizerBlock is the optional optimizer section of get_state output.
+type GetStateOptimizerBlock struct {
+	Slimmed            bool   `json:"slimmed"`
+	Persistent         bool   `json:"persistent"`
+	Warning            string `json:"warning,omitempty"`
+	PhysFootprintBytes int64  `json:"phys_footprint_bytes,omitempty"`
+	ProcessCount       int    `json:"process_count,omitempty"`
 }
 
 // Run runs the server over the given transport (e.g. stdio).
