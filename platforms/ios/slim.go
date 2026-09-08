@@ -137,10 +137,10 @@ func (s *slimmer) Restore(ctx context.Context, target string) error {
 
 // simslimStatus matches `simslim status <udid> --json` output.
 type simslimStatus struct {
-	ManagedDisabled int  `json:"managedDisabled"`
-	ManagedTotal    int  `json:"managedTotal"`
-	Booted          bool `json:"booted"`
-	Persistent      bool `json:"persistent"`
+	ManagedDisabled int    `json:"managedDisabled"`
+	ManagedTotal    int    `json:"managedTotal"`
+	Booted          bool   `json:"booted"`
+	Persistent      bool   `json:"persistent"`
 	Verdict         string `json:"verdict"`
 }
 

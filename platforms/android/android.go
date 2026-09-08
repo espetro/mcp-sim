@@ -20,7 +20,7 @@ import (
 // Platform implements contract.Platform for Android Emulators via adb/emulator.
 type Platform struct {
 	androidHome string
-	javaHome   string
+	javaHome    string
 	emulatorBin string
 	avdPortMap  map[string]int // AVD name → port
 }
