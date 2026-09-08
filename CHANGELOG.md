@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing yet.
+## [Unreleased]
+
+### Added
+
+- Optional simslim integration for iOS: booted simulators can be slimmed (~4x less memory) via the `simslim` CLI (probed on PATH, requires >= 0.6.0). Opt-in via `platforms.ios.slim` config or `MCPSIM_IOS_SLIM_*` env vars; off by default. No new MCP tools — slimming folds into `boot_device` (`optimize` argument) and `get_state` (`optimizer` block). `wipe_device` re-applies slimming automatically when `on_boot` is set (erase resets overrides to stock). iOS < 18.5 runtimes fall back to `--no-reboot` session-only slimming with a surfaced warning. See `docs/simslim.md`.
+- `contract.Optimizer` optional platform interface (Optimize/Restore/OptimizeStatus/Measure) — simulator-agnostic extension point; Android can implement its own later.
 
 <!--
 ## [X.Y.Z] - YYYY-MM-DD

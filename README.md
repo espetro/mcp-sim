@@ -4,6 +4,20 @@
 
 `mcp-sim` turns remote iOS Simulators and Android Emulators into first-class MCP tools. Boot on demand, verify via your favorite agent, tear down on completion — emulators live exactly as long as the work that needs them.
 
+> **Ask your agent:**
+> "Install mcp-sim and set it up with iOS simulators + simslim slimming
+> (`brew install espetro/mcp-sim/mcp-sim mobai-app/tap/simslim`), enable the
+> ios platform with slim on_boot, and verify with list_devices."
+
+## Install matrix
+
+| Combo | Install |
+|---|---|
+| iOS only | `brew install espetro/mcp-sim/mcp-sim` (needs Xcode) |
+| iOS + simslim (~4x less memory per simulator) | `brew install espetro/mcp-sim/mcp-sim mobai-app/tap/simslim`, then see [docs/simslim.md](docs/simslim.md) |
+| Android only | `brew install espetro/mcp-sim/mcp-sim` (needs Android SDK; all OSes) |
+| All of the above | install everything above; unused platforms stay dormant |
+
 ## Prerequisites
 
 mcp-sim is resilient: each platform adapter is auto-detected at startup, and a missing tool just means that platform's tools are skipped. You can run the server with **only iOS**, **only Android**, or **both**.
@@ -89,9 +103,9 @@ For Tailscale-based remote access, see [docs/tailscale.md](docs/tailscale.md).
 | Tool | Description |
 |------|-------------|
 | `list_devices` | List all available emulators/simulators |
-| `boot_device` | Boot a device by platform and target |
+| `boot_device` | Boot a device by platform and target (optional `optimize` flag when [simslim](docs/simslim.md) is enabled) |
 | `stop_device` | Stop a running device |
-| `get_state` | Get device state |
+| `get_state` | Get device state (includes an `optimizer` block when [simslim](docs/simslim.md) is active) |
 | `await_ready` | Wait for device to finish booting |
 | `wipe_device` | Wipe device user data |
 | `open_url` | Open a deep link on a device |
@@ -104,6 +118,7 @@ For Tailscale-based remote access, see [docs/tailscale.md](docs/tailscale.md).
 Browse the hosted docs site: **https://espetro.github.io/mcp-sim/**
 
 - [Architecture](docs/architecture.md) — adapter model and separation of concerns
+- [simslim integration](docs/simslim.md) — optional iOS simulator memory slimming (~4x)
 - [Tailscale setup](docs/tailscale.md) — running over Tailscale
 - [Running as a service](docs/service.md) — install as a native OS service (launchd/systemd/Windows Service)
 - [Adding a platform](docs/adding-platform.md) — implementing the Platform interface
