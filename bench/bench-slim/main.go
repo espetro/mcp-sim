@@ -27,12 +27,14 @@ import (
 )
 
 type result struct {
-	Timestamp string       `json:"timestamp"`
-	Machine   machineSpecs `json:"machine"`
-	Memory    []memSample  `json:"memory"`
-	Latency   latencyRes   `json:"latency"`
-	WipeRes   wipeRes      `json:"wipe_reslim"`
-	Seam      seamRes      `json:"seam"`
+	Timestamp string          `json:"timestamp"`
+	Machine   machineSpecs    `json:"machine"`
+	Memory    []memSample     `json:"memory"`
+	Latency   latencyRes      `json:"latency"`
+	WipeRes   wipeRes         `json:"wipe_reslim"`
+	Seam      seamRes         `json:"seam"`
+	MCPvsCLI  *workflowResult `json:"mcp_vs_cli,omitempty"`
+	MCPShape  string          `json:"mcp_contract_shape,omitempty"`
 }
 
 type machineSpecs struct {
@@ -210,6 +212,36 @@ func main() {
 	}
 	fmt.Printf("seam: stock %d/%d open_url ok, slim %d/%d\n",
 		res.Seam.StockOpenURL, res.Seam.Iterations, res.Seam.SlimOpenURL, res.Seam.Iterations)
+
+	// --- 5. MCP server vs raw CLI: same workflow, two transports. Even when
+	// the agent and the simulator share one machine, the question is what a
+	// device operation costs through the MCP tool surface (typed contract,
+	// single round-trip incl. readiness) vs agent-shelled simctl invocations.
+	binary, err := os.Executable()
+	if err == nil {
+		// The bench binary is not mcp-sim; locate the repo binary instead.
+		if _, statErr := os.Stat("bin/mcp-sim"); statErr == nil {
+			binary = "bin/mcp-sim"
+		}
+	}
+	if _, err := os.Stat(binary); err == nil {
+		mcpSteps, mcpErr := runWorkflowMCP(ctx, binary, targets[0], *iters)
+		cliSteps := runWorkflowCLI(ctx, targets[0], *iters)
+		res.MCPvsCLI = &workflowResult{MCP: mcpSteps, CLI: cliSteps}
+		if mcpErr != nil {
+			fmt.Printf("mcp-vs-cli: mcp path error: %v\n", mcpErr)
+		} else {
+			fmt.Println("mcp :", summarizeSteps(mcpSteps))
+		}
+		fmt.Println("cli :", summarizeSteps(cliSteps))
+		if shape, err := contractShapeCheck(ctx, binary, targets[0]); err == nil {
+			res.MCPShape = shape
+			fmt.Println("shape:", shape)
+		}
+		must(shutdown(ctx, targets[0]))
+	} else {
+		fmt.Printf("mcp-vs-cli skipped: %s not found (run task build)\n", binary)
+	}
 
 	must(os.MkdirAll(*outDir, 0o750)) // #nosec G301
 	stamp := time.Now().Format("2006-01-02")
