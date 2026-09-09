@@ -40,6 +40,28 @@ if cfg.Platforms.MyPlatform.Enabled {
 
 In `internal/config/config.go`, add `MyPlatformConfig` and wire it up.
 
+## Capabilities
+
+`Platform` requires a `Capabilities() contract.CapabilitySet` method returning a `uint32` bitmask of supported operations:
+
+```go
+func (p *Platform) Capabilities() contract.CapabilitySet {
+	s := contract.CapAll // list|start|stop|state|await_ready|wipe|open_url
+	// Advertise CapOptimize/CapMeasure only if you also implement contract.Optimizer.
+	if p.optimizer != nil {
+		s = s.Enable(contract.CapOptimize).Enable(contract.CapMeasure)
+	}
+	return s
+}
+```
+
+Rules:
+
+- Base caps: `CapList`, `CapStart`, `CapStop`, `CapState`, `CapAwaitReady`, `CapWipe`, `CapOpenURL` (bundled as `contract.CapAll`).
+- Advertise `CapOptimize`/`CapMeasure` only when the adapter actually implements `contract.Optimizer` — callers gate on both.
+- Use `Has`/`Enable` for set operations; `String()` gives a human-readable listing for logs and error messages.
+- For platform-specific behavior not in the contract, use the gocloud-style escape hatch `contract.As[T](p)` (a typed assertion) rather than widening `Platform`.
+
 ## Key rules
 
 - Do NOT add verification tools (tap, screenshot, getTree) — those belong in Controllers

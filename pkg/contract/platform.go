@@ -23,6 +23,10 @@ type Platform interface {
 	Wipe(ctx context.Context, target string) error
 	// OpenURL launches a deep link on the device.
 	OpenURL(ctx context.Context, target, url string) error
+	// Capabilities reports the bitmask of supported operations. Required
+	// (pre-1.0 contract): advertise CapOptimize/CapMeasure only when the
+	// platform also implements Optimizer. See capabilities.go.
+	Capabilities() CapabilitySet
 }
 
 // Optimizer is an optional Platform extension that reduces a device's

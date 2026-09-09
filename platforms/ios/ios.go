@@ -46,6 +46,16 @@ func New(ctx context.Context, cfg config.IOSConfig) (*Platform, error) {
 // Name returns "ios".
 func (p *Platform) Name() string { return "ios" }
 
+// Capabilities reports the supported operations: all lifecycle caps, plus
+// optimize/measure when a slimmer is configured (i.e. Optimizer is implemented).
+func (p *Platform) Capabilities() contract.CapabilitySet {
+	s := contract.CapAll
+	if p.slim != nil {
+		s = s.Enable(contract.CapOptimize).Enable(contract.CapMeasure)
+	}
+	return s
+}
+
 func (p *Platform) xcrun(ctx context.Context, args ...string) *exec.Cmd {
 	cmd := exec.CommandContext(ctx, "xcrun", args...)
 	cmd.Env = append(cmd.Env, "DEVELOPER_DIR="+p.developerDir)

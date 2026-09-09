@@ -313,3 +313,9 @@ func (p *Platform) OpenURL(ctx context.Context, target, url string) error {
 	cmd := p.adbCmd(ctx, "-s", serial, "shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", url)
 	return cmd.Run()
 }
+
+// Capabilities reports the supported operations: base lifecycle caps only —
+// the Android adapter does not implement Optimizer.
+func (p *Platform) Capabilities() contract.CapabilitySet {
+	return contract.CapAll
+}
