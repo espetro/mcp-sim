@@ -267,7 +267,9 @@ func shutdownAll(udids []string) {
 
 func bootAndAwait(ctx context.Context, udid string) error {
 	if err := exec.CommandContext(ctx, "xcrun", "simctl", "boot", udid).Run(); err != nil {
-		if !strings.Contains(err.Error(), "already booted") {
+		msg := err.Error()
+		// "Booted"/exit 149 = device already booted; bootstatus below confirms.
+		if !strings.Contains(msg, "already booted") && !strings.Contains(msg, "149") && !strings.Contains(msg, "current state") {
 			return fmt.Errorf("boot: %w", err)
 		}
 	}
