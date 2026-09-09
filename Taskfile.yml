@@ -39,6 +39,11 @@ tasks:
     cmds:
       - go mod tidy
 
+  bench-slim:
+    desc: Run the simslim benchmark matrix (macOS + Xcode + simslim only; writes bench/results/)
+    cmds:
+      - go run ./bench/bench-slim -iters {{.ITERS | default "5"}} -out bench/results
+
   docs:
     desc: Run docmd dev server for docs/ (live preview)
     cmds:
