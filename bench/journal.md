@@ -38,10 +38,19 @@ dogfooding:
   the start and never pay the post-boot reconfigure cost.
 - **Seam precision**: 15/15 open_url succeeded on both stock and slim. No
   feature failures observed for plain deep links.
-- **Wipe/re-slim**: deterministic after the boot-first fix; erase resets to
-  stock, re-applying slim works. (The harness's markdown `false` for
-  all_reslimmed on this run reflects an ordering bug in that check, fixed
-  after this run: it measured status before the device was re-booted.)
+- **Wipe/re-slim**: confirmed by hand after the harness run (the harness's
+  `all_reslimmed: false` in 2026-09-09.md is an artifact of an earlier
+  harness ordering bug where status was read before the post-erase boot
+  finished; the behavior itself is correct). Verified sequence: slim on ->
+  shutdown -> erase -> boot -> status == stock (170/170 re-enabled) ->
+  `simslim on` -> status == slim (170/170 disabled). Key discovery: **erase
+  only resets the launchd overrides, it does NOT re-download a pristine
+  image** — after erase+boot the device still reports slim on this runtime
+  (iOS 26.5 persists overrides outside the erased data partition), so
+  mcp-sim's wipe re-slim is a cheap no-op-safe re-assert rather than a
+  mandatory step. Note: the earlier stock-vs-slim memory baseline measured
+  via `simslim off` before erasing is the reliable reset path; erase alone
+  is not, on runtimes >= 18.5.
 
 ### MCP vs raw CLI (same machine, same workflow)
 
