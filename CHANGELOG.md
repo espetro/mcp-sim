@@ -7,13 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-- Orchestrator core extraction: `internal/core` replaced by public `pkg/orchestrator` (concrete `Orchestrator` struct, fallible functional options, loud duplicate-registration errors). `Platform` gains a required `Capabilities() CapabilitySet` for capability discovery. Lifecycle actions are now idempotent: `boot_device` on a running device succeeds (profile reconciliation runs, then returns current state), `stop_device` on a stopped device is a no-op success. `wipe_device` returns the device to its configured baseline (erase + re-apply slim profile when `on_boot` is set). `list_devices` degrades partially when one platform fails instead of erroring. Registration wiring unified in `internal/bootstrap.BuildOrchestrator`. MCP tool names and schemas unchanged.
-- Docs restructured for agent consumption: README reworked per the agentic readiness checklist (verbatim install command, prerequisites table with detection commands, MCP tool list, full config key/env var reference, copyable agent setup prompt, verifiable success criteria). `docs/architecture.md` is now a light user overview with a three-layer diagram and a minimal `pkg/orchestrator` embed example; design rationale moved to `.agents/docs/ARCHITECTURE.md` (unhosted). New `docs/agent-setup.md`: imperative setup spec for coding agents (install, prerequisite detection, transport choice, client config, list_devices verification, failure fallbacks).
+### Added
 
 - Optional simslim integration for iOS: booted simulators can be slimmed (~4x less memory) via the `simslim` CLI (probed on PATH, requires >= 0.6.0). Opt-in via `platforms.ios.slim` config or `MCPSIM_IOS_SLIM_*` env vars; off by default. No new MCP tools — slimming folds into `boot_device` (`optimize` argument) and `get_state` (`optimizer` block). `wipe_device` re-applies slimming automatically when `on_boot` is set (erase resets overrides to stock). iOS < 18.5 runtimes fall back to `--no-reboot` session-only slimming with a surfaced warning. See `docs/simslim.md`.
 - `contract.Optimizer` optional platform interface (Optimize/Restore/OptimizeStatus/Measure) — simulator-agnostic extension point; Android can implement its own later.
+
+### Changed
+
+- Orchestrator core extraction: `internal/core` replaced by public `pkg/orchestrator` (concrete `Orchestrator` struct, fallible functional options, loud duplicate-registration errors). `Platform` gains a required `Capabilities() CapabilitySet` for capability discovery. Lifecycle actions are now idempotent: `boot_device` on a running device succeeds (profile reconciliation runs, then returns current state), `stop_device` on a stopped device is a no-op success. `wipe_device` returns the device to its configured baseline (erase + re-apply slim profile when `on_boot` is set). `list_devices` degrades partially when one platform fails instead of erroring. Registration wiring unified in `internal/bootstrap.BuildOrchestrator`. MCP tool names and schemas unchanged.
+- Docs restructured for agent consumption: README reworked per the agentic readiness checklist (verbatim install command, prerequisites table with detection commands, MCP tool list, full config key/env var reference, copyable agent setup prompt, verifiable success criteria). `docs/architecture.md` is now a light user overview with a three-layer diagram and a minimal `pkg/orchestrator` embed example; design rationale moved to `.agents/docs/ARCHITECTURE.md` (unhosted). New `docs/agent-setup.md`: imperative setup spec (install, prerequisite detection, transport choice, config, verification, fallbacks).
 
 <!--
 ## [X.Y.Z] - YYYY-MM-DD
