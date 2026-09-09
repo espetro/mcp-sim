@@ -38,9 +38,6 @@ func TestCapabilitySetString(t *testing.T) {
 	}
 }
 
-type fakeOpt struct{ base }
-
-type base struct{}
 
 func TestCapabilitiesFor(t *testing.T) {
 	plat := optPlatform{}

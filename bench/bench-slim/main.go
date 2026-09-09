@@ -79,6 +79,7 @@ func main() {
 	flag.Parse()
 
 	ctx := context.Background()
+	runOrchestratorSmoke(ctx)
 	res := result{Timestamp: time.Now().UTC().Format(time.RFC3339)}
 	res.Machine = collectSpecs(ctx)
 
