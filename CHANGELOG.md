@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Docs restructured for agent consumption: README reworked per the agentic readiness checklist (verbatim install command, prerequisites table with detection commands, MCP tool list, full config key/env var reference, copyable agent setup prompt, verifiable success criteria). `docs/architecture.md` is now a light user overview with a three-layer diagram and a minimal `pkg/orchestrator` embed example; design rationale moved to `.agents/docs/ARCHITECTURE.md` (unhosted). New `docs/agent-setup.md`: imperative setup spec for coding agents (install, prerequisite detection, transport choice, client config, list_devices verification, failure fallbacks).
+
 ## [Unreleased]
 
 ### Added

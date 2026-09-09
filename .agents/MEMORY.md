@@ -67,3 +67,8 @@ Researched while planning the MicroClaw VPS deployment
 - 2026-09-09: reconciled with the MicroClaw dreaming research (session
   CeHdXa3LxbSz95mFvo3az); adopted its safeguards (activity guard, .pre-dream
   backup, archive threshold) into the policy above.
+- 2026-09-09: added `.agents/docs/ARCHITECTURE.md`, the Orchestrator Core
+  decision record (concrete struct, capability flags, wipe reconciliation,
+  dependency rule). It supersedes `.agents/docs/screens/` where overlapping.
+  Docs split rule: user docs in `docs/` (hosted, main only), contributor
+  docs in `.agents/docs/` (committed, unhosted).

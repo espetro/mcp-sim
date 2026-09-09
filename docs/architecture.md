@@ -1,66 +1,52 @@
 # Architecture
 
-## Adapter model
+mcp-sim has three layers: an MCP transport, a Go orchestrator core, and simulator adapters.
 
-mcp-sim follows an adapter pattern with two interface layers:
-
-```
-MCP client → mcp-sim service → Platform adapters (iOS, Android)
-                                → Controller adapters (agent-device)
-```
-
-### Platform adapters (`platforms/`)
-
-Implement `contract.Platform` to expose emulator/simulator lifecycle:
-- `List`, `Start`, `Stop`, `State`, `AwaitReady`, `Wipe`, `OpenURL`
-
-Built-in: `platforms/ios`, `platforms/android`
-
-### Controller adapters (`controllers/`)
-
-Implement `contract.Controller` to expose verification-layer proxies:
-- `Start`, `Stop`, `Status`
-
-Built-in: `controllers/agentdevice`
-
-## Separation of concerns
-
-mcp-sim owns **infrastructure lifecycle only** — power, state, data wipe, deep-link launch.
-
-It does NOT ship UI automation tools (tap, screenshot, view hierarchy). That role belongs to Controllers.
-
-This split is load-bearing: platform adapters must not contain `tap()`, `screenshot()`, or `getTree()` methods. See [CONTRIBUTING.md](../CONTRIBUTING.md).
-
-## State machine
-
-A device transitions through states:
-
-```
-Stopped → Booting → Running → Stopped
-                ↘ (error) → Error → Stopped
+```mermaid
+flowchart LR
+    C[MCP client<br/>Claude Code, Cursor, ...] <--> T[MCP transport<br/>stdio or HTTP]
+    T <--> O[Orchestrator core<br/>pkg/orchestrator]
+    O <--> I[iOS adapter<br/>xcrun simctl]
+    O <--> A[Android adapter<br/>emulator + adb]
+    O <--> G[agent-device controller<br/>verification proxy]
 ```
 
-## Adapter availability & resilience
+## Layers
 
-Each platform adapter is **lazy** in registration: at server startup, the
-adapter constructor probes for its underlying tooling (`xcode-select` for iOS,
-`emulator`/`adb` on PATH for Android, etc.). If the tool isn't reachable, the
-adapter returns `nil` and the registry simply doesn't include it. The server
-boots normally with whatever subset of platforms was actually detected.
+1. **MCP transport** (`pkg/mcp`): exposes the orchestrator as MCP tools (`list_devices`, `boot_device`, `stop_device`, `wipe_device`, `get_state`, `await_ready`, `open_url`, plus controller tools) over stdio or HTTP.
+2. **Orchestrator core** (`pkg/orchestrator`): the public Go API. Owns device lifecycle, idempotent actions, and wipe convergence. No transport knowledge.
+3. **Adapters** (`platforms/ios`, `platforms/android`, `controllers/agentdevice`): wrap the platform CLIs. Each registers itself only if its tooling is detected, so the same binary works with iOS only, Android only, or both.
 
-This means the same binary can serve a Swift-only developer (no Android SDK),
-an Android-only developer (no Xcode), or a full-stack workflow. To disable a
-specific platform explicitly:
+## Embedding the orchestrator
 
-```bash
-MCPSIM_IOS_ENABLED=false
-MCPSIM_ANDROID_ENABLED=false
-MCPSIM_AGENT_DEVICE_ENABLED=false
+The core is a plain Go library. Use it directly from any Go program:
+
+```go
+import (
+    "log/slog"
+
+    "github.com/espetro/mcp-sim/pkg/orchestrator"
+    "github.com/espetro/mcp-sim/platforms/ios"
+)
+
+o, err := orchestrator.New(
+    orchestrator.WithPlatform(ios.New(ios.Defaults())),
+    orchestrator.WithLogger(slog.Default()),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+devices, err := o.List(ctx)
+// boot a device and confirm it reached the running state
+if err := o.Boot(ctx, deviceID); err != nil { ... }
+state, err := o.State(ctx, deviceID)
 ```
 
-When an unavailable platform is requested, the call returns a stable MCP
-error code (e.g. `unsupported_platform`).
+Lifecycle methods (`Boot`, `Stop`, `Wipe`, `State`, `List`, `AwaitReady`, `OpenURL`) are idempotent: calling them twice converges to the same result. `Wipe` returns the device to its configured baseline, including re-applying simslim when `slim.on_boot` is set.
 
-## Extension guide
+## Extension
 
 See [adding-platform.md](adding-platform.md) for implementing a new platform adapter.
+
+For contributors: the full design rationale and decision record lives in `.agents/docs/ARCHITECTURE.md` in the repo.
