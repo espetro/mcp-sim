@@ -442,7 +442,9 @@ func markdown(r result) string {
 		}
 	}
 	if stockN > 0 && slimN > 0 {
-		fmt.Fprintf(&b, "\nAverage reduction: %.2fx\n\n", float64(stock)/float64(stockN)/float64(slim)/float64(slimN))
+		fmt.Fprintf(&b, "\nAverage reduction: %.2fx (stock %.2f GB -> slim %.2f GB)\n\n",
+			float64(stock)/float64(stockN)/(float64(slim)/float64(slimN)),
+			float64(stock)/float64(stockN)/1e9, float64(slim)/float64(slimN)/1e9)
 	}
 
 	avg := func(xs []int64) int64 {
