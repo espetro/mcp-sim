@@ -262,3 +262,75 @@ func TestStatusJSONStockDevice(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestReconcileProfileNotEnabled(t *testing.T) {
+	dir := fakeSimslimDir(t, slimStatus, slimMeasure)
+	withPATH(t, dir)
+	p := &Platform{}
+	if err := p.ReconcileProfile(context.Background(), "UDID"); err != nil {
+		t.Fatal(err)
+	}
+	calls := make([]string, 0, len(callsLog(t, dir)))
+	for _, c := range callsLog(t, dir) {
+		if c != "version" {
+			calls = append(calls, c)
+		}
+	}
+	if len(calls) != 0 {
+		t.Fatalf("expected no simslim calls when slim disabled, got %v", calls)
+	}
+}
+
+func TestReconcileProfileOnBootDisabled(t *testing.T) {
+	dir := fakeSimslimDir(t, `{"managedDisabled":0,"managedTotal":42,"booted":true,"persistent":true,"verdict":"stock"}`, slimMeasure)
+	withPATH(t, dir)
+	p := &Platform{slim: NewSlimmer(config.SlimConfig{Enabled: true, OnBoot: false})}
+	if err := p.ReconcileProfile(context.Background(), "UDID"); err != nil {
+		t.Fatal(err)
+	}
+	calls := make([]string, 0, len(callsLog(t, dir)))
+	for _, c := range callsLog(t, dir) {
+		if c != "version" {
+			calls = append(calls, c)
+		}
+	}
+	if len(calls) != 0 {
+		t.Fatalf("expected no simslim calls when on_boot false, got %v", calls)
+	}
+}
+
+func TestReconcileProfileAlreadySlimmed(t *testing.T) {
+	dir := fakeSimslimDir(t, slimStatus, slimMeasure)
+	withPATH(t, dir)
+	p := &Platform{slim: NewSlimmer(config.SlimConfig{Enabled: true, OnBoot: true})}
+	if err := p.ReconcileProfile(context.Background(), "UDID"); err != nil {
+		t.Fatal(err)
+	}
+	calls := make([]string, 0, len(callsLog(t, dir)))
+	for _, c := range callsLog(t, dir) {
+		if c != "version" {
+			calls = append(calls, c)
+		}
+	}
+	if len(calls) != 1 || !strings.HasPrefix(calls[0], "status ") {
+		t.Fatalf("expected a single status probe and no optimize, got %v", calls)
+	}
+}
+
+func TestReconcileProfileOptimizesOnce(t *testing.T) {
+	dir := fakeSimslimDir(t, `{"managedDisabled":0,"managedTotal":42,"booted":true,"persistent":true,"verdict":"stock"}`, slimMeasure)
+	withPATH(t, dir)
+	p := &Platform{slim: NewSlimmer(config.SlimConfig{Enabled: true, OnBoot: true})}
+	if err := p.ReconcileProfile(context.Background(), "UDID"); err != nil {
+		t.Fatal(err)
+	}
+	var ons int
+	for _, c := range callsLog(t, dir) {
+		if strings.HasPrefix(c, "on ") {
+			ons++
+		}
+	}
+	if ons != 1 {
+		t.Fatalf("expected exactly one optimize command, got %d in %v", ons, callsLog(t, dir))
+	}
+}

@@ -268,6 +268,26 @@ func (p *Platform) OptimizeOnBoot(ctx context.Context, target string, override *
 	return err
 }
 
+// ReconcileProfile is the orchestrator's idempotent profile reconciliation
+// hook (boot on an already-running device, and after wipe). No-op when slim
+// is disabled or on_boot is off; skips the optimizer when the device is
+// already slimmed.
+func (p *Platform) ReconcileProfile(ctx context.Context, target string) error {
+	if p.slim == nil || !p.slim.cfg.OnBoot {
+		return nil
+	}
+	st, err := p.slim.OptimizeStatus(ctx, target)
+	if err != nil {
+		// Status can race on a just-booted/wiped device; optimistically
+		// re-apply per config (same policy as ReSlimAfterWipe).
+		st = contract.OptimizeStatus{Slimmed: false}
+	}
+	if st.Slimmed {
+		return nil
+	}
+	return p.OptimizeOnBoot(ctx, target, nil)
+}
+
 // ReSlimAfterWipe re-applies slimming after a successful erase: erase resets
 // launchd overrides to stock (documented simslim behavior), so devices under
 // slim.on_boot get re-slimmed automatically. No-op when slim is off.
@@ -282,7 +302,7 @@ func (p *Platform) ReSlimAfterWipe(ctx context.Context, target string) error {
 		st = contract.OptimizeStatus{Slimmed: false}
 	}
 	if !st.Slimmed && p.slim.cfg.OnBoot {
-		return p.OptimizeOnBoot(ctx, target, nil)
+		return p.ReconcileProfile(ctx, target)
 	}
 	return nil
 }

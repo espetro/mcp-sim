@@ -7,19 +7,14 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"sort"
 	"syscall"
 
-	"github.com/espetro/mcp-sim/controllers/agentdevice"
 	"github.com/espetro/mcp-sim/internal/bootstrap"
 	"github.com/espetro/mcp-sim/internal/config"
-	"github.com/espetro/mcp-sim/internal/core"
 	applog "github.com/espetro/mcp-sim/internal/log"
 	svc "github.com/espetro/mcp-sim/internal/service"
 	"github.com/espetro/mcp-sim/internal/version"
 	"github.com/espetro/mcp-sim/pkg/mcp"
-	"github.com/espetro/mcp-sim/platforms/android"
-	"github.com/espetro/mcp-sim/platforms/ios"
 
 	kservice "github.com/kardianos/service"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -299,16 +294,14 @@ func serveImpl(prog, listenAddr, configPath string) error {
 	logger := applog.New(cfg.Server.LogLevel, cfg.Server.LogFormat)
 	ctx := applog.WithContext(context.Background(), logger)
 
-	registry, httpServer, err := bootstrap.BuildHTTPServer(ctx, cfg, logger)
+	orch, httpServer, err := bootstrap.BuildHTTPServer(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
 
 	logger.Info("mcp-sim starting",
 		"version", version.Version,
-		"addr", cfg.Server.Listen,
-		"platforms", platformNames(registry),
-		"controllers", controllerNames(registry))
+		"addr", cfg.Server.Listen)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -316,7 +309,7 @@ func serveImpl(prog, listenAddr, configPath string) error {
 	go func() {
 		<-ctx.Done()
 		logger.Info("shutdown signal received")
-		registry.ShutdownAll()
+		_ = orch.ShutdownAll(ctx)
 	}()
 
 	if err := httpServer.ListenAndServe(ctx); err != nil {
@@ -335,46 +328,11 @@ func mcpImpl(prog, configPath string) error {
 	logger := applog.New(cfg.Server.LogLevel, cfg.Server.LogFormat)
 	ctx := applog.WithContext(context.Background(), logger)
 
-	registry := core.NewRegistry(logger)
-	lifecycle := core.NewLifecycle(registry)
-
-	if cfg.Platforms.IOS.Enabled {
-		iosPlatform, _ := ios.New(ctx, cfg.Platforms.IOS)
-		if iosPlatform != nil {
-			registry.RegisterPlatform(iosPlatform)
-		}
-	}
-	if cfg.Platforms.Android.Enabled {
-		androidPlatform, _ := android.New(cfg.Platforms.Android)
-		if androidPlatform != nil {
-			registry.RegisterPlatform(androidPlatform)
-		}
-	}
-	if cfg.Controllers.AgentDevice.Enabled {
-		registry.RegisterController(agentdevice.New(cfg.Controllers.AgentDevice))
+	orch, err := bootstrap.BuildOrchestrator(ctx, cfg, logger)
+	if err != nil {
+		return err
 	}
 
-	mcpServer := mcp.NewServer(registry, lifecycle, logger)
+	mcpServer := mcp.NewServer(orch, logger)
 	return mcpServer.Run(ctx, &sdkmcp.StdioTransport{})
-}
-
-// platformNames returns a sorted list of registered platform names.
-func platformNames(r *core.Registry) []string {
-	ps := r.AllPlatforms()
-	names := make([]string, 0, len(ps))
-	for name := range ps {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
-}
-
-func controllerNames(r *core.Registry) []string {
-	cs := r.AllControllers()
-	names := make([]string, 0, len(cs))
-	for name := range cs {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
 }

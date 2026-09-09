@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/espetro/mcp-sim/internal/core"
 	"github.com/espetro/mcp-sim/internal/version"
 	"github.com/espetro/mcp-sim/pkg/contract"
+	"github.com/espetro/mcp-sim/pkg/orchestrator"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -19,7 +19,8 @@ type Server struct {
 }
 
 // NewServer creates an MCP server with the mcp-sim tool set registered.
-func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.Logger) *Server {
+// Every tool maps 1:1 onto an orchestrator method.
+func NewServer(orch *orchestrator.Orchestrator, logger *slog.Logger) *Server {
 	s := mcp.NewServer(&mcp.Implementation{
 		Name:    "mcp-sim",
 		Title:   "MCP Simulator Server",
@@ -35,7 +36,7 @@ func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, struct {
 		Devices []contract.Device `json:"devices"`
 	}, error) {
-		devs, err := core.ListDevices(ctx, registry)
+		devs, err := orch.List(ctx)
 		return nil, struct {
 			Devices []contract.Device `json:"devices"`
 		}{Devices: devs}, err
@@ -59,7 +60,7 @@ func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.
 			Timeout:  time.Duration(in.Timeout) * time.Second,
 			Optimize: in.Optimize,
 		}
-		dev, err := lifecycle.BootDevice(ctx, in.Platform, in.Target, opts)
+		dev, err := orch.Boot(ctx, in.Platform, in.Target, opts)
 		return nil, dev, err
 	})
 
@@ -71,10 +72,10 @@ func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.
 		Platform string `json:"platform"`
 		Target   string `json:"target"`
 	}) (*mcp.CallToolResult, contract.Device, error) {
-		if err := lifecycle.StopDevice(ctx, in.Platform, in.Target); err != nil {
+		if err := orch.Stop(ctx, in.Platform, in.Target); err != nil {
 			return nil, contract.Device{}, err
 		}
-		state, err := core.GetDeviceState(ctx, registry, in.Platform, in.Target)
+		state, err := orch.State(ctx, in.Platform, in.Target)
 		return nil, contract.Device{Platform: in.Platform, ID: in.Target, State: state}, err
 	})
 
@@ -86,10 +87,10 @@ func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.
 		Platform string `json:"platform"`
 		Target   string `json:"target"`
 	}) (*mcp.CallToolResult, contract.Device, error) {
-		if err := lifecycle.WipeDevice(ctx, in.Platform, in.Target); err != nil {
+		if err := orch.Wipe(ctx, in.Platform, in.Target); err != nil {
 			return nil, contract.Device{}, err
 		}
-		state, err := core.GetDeviceState(ctx, registry, in.Platform, in.Target)
+		state, err := orch.State(ctx, in.Platform, in.Target)
 		return nil, contract.Device{Platform: in.Platform, ID: in.Target, State: state}, err
 	})
 
@@ -104,7 +105,7 @@ func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.
 		State     string                  `json:"state"`
 		Optimizer *GetStateOptimizerBlock `json:"optimizer,omitempty"`
 	}, error) {
-		state, err := core.GetDeviceState(ctx, registry, in.Platform, in.Target)
+		state, err := orch.State(ctx, in.Platform, in.Target)
 		if err != nil {
 			return nil, struct {
 				State     string                  `json:"state"`
@@ -115,7 +116,7 @@ func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.
 			State     string                  `json:"state"`
 			Optimizer *GetStateOptimizerBlock `json:"optimizer,omitempty"`
 		}{State: string(state)}
-		if st, usage, err := core.GetOptimizerState(ctx, registry, in.Platform, in.Target); err == nil && st != nil {
+		if st, usage, err := orch.OptimizerState(ctx, in.Platform, in.Target); err == nil && st != nil {
 			out.Optimizer = &GetStateOptimizerBlock{
 				Slimmed:    st.Slimmed,
 				Persistent: st.Persistent,
@@ -144,7 +145,7 @@ func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.
 		if timeout == 0 {
 			timeout = 60 * time.Second
 		}
-		if err := core.AwaitDeviceReady(ctx, registry, in.Platform, in.Target, timeout); err != nil {
+		if err := orch.AwaitReady(ctx, in.Platform, in.Target, timeout); err != nil {
 			return nil, struct{ Ready bool }{}, err
 		}
 		return nil, struct{ Ready bool }{Ready: true}, nil
@@ -159,7 +160,7 @@ func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.
 		Target   string `json:"target"`
 		URL      string `json:"url"`
 	}) (*mcp.CallToolResult, struct{ Success bool }, error) {
-		if err := lifecycle.OpenURL(ctx, in.Platform, in.Target, in.URL); err != nil {
+		if err := orch.OpenURL(ctx, in.Platform, in.Target, in.URL); err != nil {
 			return nil, struct{ Success bool }{}, err
 		}
 		return nil, struct{ Success bool }{Success: true}, nil
@@ -173,7 +174,7 @@ func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.
 		Name string `json:"name"`
 		Port int    `json:"port,omitempty"`
 	}) (*mcp.CallToolResult, contract.ProxyInfo, error) {
-		info, err := core.StartController(ctx, registry, in.Name, contract.StartConfig{Port: in.Port})
+		info, err := orch.StartController(ctx, in.Name, contract.StartConfig{Port: in.Port})
 		return nil, info, err
 	})
 
@@ -184,10 +185,10 @@ func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in struct {
 		Name string `json:"name"`
 	}) (*mcp.CallToolResult, contract.ProxyInfo, error) {
-		if err := core.StopController(ctx, registry, in.Name); err != nil {
+		if err := orch.StopController(ctx, in.Name); err != nil {
 			return nil, contract.ProxyInfo{}, err
 		}
-		info, err := core.ControllerStatus(ctx, registry, in.Name)
+		info, err := orch.ControllerStatus(ctx, in.Name)
 		return nil, info, err
 	})
 
@@ -198,7 +199,7 @@ func NewServer(registry *core.Registry, lifecycle *core.Lifecycle, logger *slog.
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in struct {
 		Name string `json:"name"`
 	}) (*mcp.CallToolResult, contract.ProxyInfo, error) {
-		info, err := core.ControllerStatus(ctx, registry, in.Name)
+		info, err := orch.ControllerStatus(ctx, in.Name)
 		return nil, info, err
 	})
 

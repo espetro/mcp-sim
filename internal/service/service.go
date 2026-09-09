@@ -10,7 +10,7 @@ import (
 
 	"github.com/espetro/mcp-sim/internal/bootstrap"
 	"github.com/espetro/mcp-sim/internal/config"
-	"github.com/espetro/mcp-sim/internal/core"
+	"github.com/espetro/mcp-sim/pkg/orchestrator"
 
 	kservice "github.com/kardianos/service"
 )
@@ -21,9 +21,9 @@ type Program struct {
 	cfg    config.Config
 	logger *slog.Logger
 
-	registry *core.Registry
-	cancel   context.CancelFunc
-	done     chan struct{}
+	orch   *orchestrator.Orchestrator
+	cancel context.CancelFunc
+	done   chan struct{}
 }
 
 // NewProgram creates a service program for the given config.
@@ -37,12 +37,12 @@ func (p *Program) Start(s kservice.Service) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	p.cancel = cancel
 
-	registry, httpServer, err := bootstrap.BuildHTTPServer(ctx, p.cfg, p.logger)
+	orch, httpServer, err := bootstrap.BuildHTTPServer(ctx, p.cfg, p.logger)
 	if err != nil {
 		cancel()
 		return err
 	}
-	p.registry = registry
+	p.orch = orch
 	p.done = make(chan struct{})
 
 	go func() {
@@ -62,8 +62,8 @@ func (p *Program) Stop(s kservice.Service) error {
 	if p.done != nil {
 		<-p.done
 	}
-	if p.registry != nil {
-		p.registry.ShutdownAll()
+	if p.orch != nil {
+		_ = p.orch.ShutdownAll(context.Background())
 	}
 	return nil
 }
