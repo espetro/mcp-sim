@@ -151,8 +151,11 @@ func main() {
 	// --- 3. wipe/re-slim correctness (mcp-sim handles this in wipe_device;
 	// here we verify the primitive: erase resets overrides, slim re-applies).
 	for _, u := range targets {
+		// simslim on/off need a booted simulator.
+		must(bootAndAwait(ctx, u))
 		must(slimOn(ctx, u))
 		must(erase(ctx, u))
+		must(bootAndAwait(ctx, u))
 		st, err := status(ctx, u)
 		if err != nil {
 			fatal(err)
@@ -161,11 +164,19 @@ func main() {
 			res.WipeRes.Runs++
 			continue // unexpectedly slim after erase; simslim semantics say stock
 		}
+		must(slimOn(ctx, u))
+		st, err = status(ctx, u)
+		if err != nil {
+			fatal(err)
+		}
+		if st.Slimmed() {
+			res.WipeRes.AllReslimmed = true
+		}
 		must(slimOff(ctx, u))
+		must(shutdown(ctx, u))
 	}
-	fmt.Printf("wipe/reslim: %d runs, reslim ok = %v\n", res.WipeRes.Runs, res.WipeRes.AllReslimmed)
 
-	// --- 4. seam precision: open_url + status on stock vs slim.
+	// --- 4. seam precision: open_url + get_state-equivalent on stock vs slim.
 	deepLink := "https://www.apple.com"
 	for i := 0; i < *iters; i++ {
 		for _, u := range targets {
@@ -204,7 +215,7 @@ func main() {
 	stamp := time.Now().Format("2006-01-02")
 	j, _ := json.MarshalIndent(res, "", "  ")
 	jsonPath := filepath.Join(*outDir, stamp+".json")
-	must(os.WriteFile(jsonPath, j, 0o600)) // #nosec G306
+	must(os.WriteFile(jsonPath, j, 0o600))                                                // #nosec G306
 	must(os.WriteFile(filepath.Join(*outDir, stamp+".md"), []byte(markdown(res)), 0o600)) // #nosec G306
 	fmt.Println("wrote", jsonPath)
 }
