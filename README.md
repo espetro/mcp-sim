@@ -113,6 +113,18 @@ For Tailscale-based remote access, see [docs/tailscale.md](docs/tailscale.md).
 | `stop_controller` | Stop a controller proxy daemon |
 | `controller_status` | Check controller proxy status |
 
+## Benchmarks
+
+Measured on a MacBook Pro M1 (8 GB), Xcode 26.6, iOS 26.5 runtime, simslim 0.8.0. Method: phys_footprint via `simslim measure --json`, 3 devices, 5 iterations. Full data in `bench/results/`, method and journal in `bench/`.
+
+| Metric | Stock | Slim | Delta |
+|---|---|---|---|
+| phys_footprint per simulator | 2.4 to 3.9 GB | ~0.97 GB | 2.6 to 4.0x reduction |
+| Processes per simulator | 168 to 249 | ~70 | fewer daemons |
+| open_url deep-link success | 15/15 | 15/15 | no seam breakage |
+
+Boot cost: applying slim post-boot adds a reconfigure+reboot cycle (~1 min worst case on this 8 GB host). With `slim.on_boot` (the default flow in mcp-sim), second and later boots are slim from the start and do not pay that cost.
+
 ## Docs
 
 Browse the hosted docs site: **https://espetro.github.io/mcp-sim/**

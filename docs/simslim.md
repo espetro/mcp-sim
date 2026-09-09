@@ -95,3 +95,15 @@ checks whether a required feature still works on a slimmed simulator.
 The simslim CLI stays user-reachable: agents and humans can run
 `simslim status`, `simslim off <udid>`, or `simslim measure <udid> --json`
 directly at any time.
+
+## Benchmarks
+
+Measured on a MacBook Pro M1 (8 GB), iOS 26.5, simslim 0.8.0 (phys_footprint via `simslim measure --json`, 3 devices):
+
+| Metric | Stock | Slim |
+|---|---|---|
+| phys_footprint per simulator | 2.4 to 3.9 GB | ~0.97 GB (2.6 to 4.0x reduction) |
+| Processes per simulator | 168 to 249 | ~70 |
+| open_url deep-link success | 15/15 | 15/15 |
+
+Applying slim post-boot costs a reconfigure + reboot cycle (~1 min on an 8 GB host). With `on_boot: true` (the mcp-sim flow), steady-state boots are slim from the start and skip that cost. Full method, raw JSON, and the MCP-vs-CLI workflow comparison live in `bench/`.
