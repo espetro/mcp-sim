@@ -33,7 +33,37 @@ There is no automatic dreamer running today; the process is agent-executed:
      `drafts/_archive/<YYYY-MM>.md` (one paragraph per file) or drop,
    - update this file's log below.
 
+   Safeguards (adopted from the OpenClaw/auto-dream lineage): skip the dream
+   if a session was active in the last 60 minutes; back up compacted targets
+   (`.pre-dream` copy); never drop `PERMANENT`-marked notes; source-anchor
+   retained claims (file:line or URL); cap the notes index (`.agents/MEMORY.md`
+   log) at ~200 lines.
+
+## Prior art: dreaming implementations (from session CeHdXa3LxbSz95mFvo3az)
+
+Researched while planning the MicroClaw VPS deployment
+(`~/.local/state/maki/plans/possible-equipped-dove.md`, Phase 6):
+
+- **OpenClaw "Dreaming"** (native, memory-core plugin): 3-phase nightly sweep
+  (light/REM/deep), cron 3AM, promotes to MEMORY.md, DREAMS.md diary, SQLite
+  preimages for rollback, activity guards. Default-on. Origin: openclaw PR #19685.
+  Design cites sleep-time compute (arXiv:2504.13171) and Generative Agents
+  reflection (arXiv:2304.03442).
+- **Icattj/openclaw-skill-auto-dream**: portable 4-phase skill (Orient ->
+  Gather -> Consolidate -> Prune), 24h cron, isolated session, 200-line
+  MEMORY.md cap, archives daily files >90 days. The pattern this repo's
+  policy adopts in agent-executed form.
+- **MicroClaw / RayClaw**: no dream skill; scheduler + "memory reflector"
+  (MicroClaw PR #329, inspired by hermes-agent). Dream = SKILL.md + cron
+  scheduled sub-agent.
+- Common safeguards worth copying: activity guard (skip if session active
+  <60min), dream-log.json time gate, .pre-dream backup, source-anchored
+  entries, never touch PERMANENT items, timeout ~600s, cheap model.
+
 ## Log
 
 - 2026-09-09: layout created. Seed notes: simslim benchmark findings,
   erase/persistence semantics, MCP-vs-CLI payload comparison.
+- 2026-09-09: reconciled with the MicroClaw dreaming research (session
+  CeHdXa3LxbSz95mFvo3az); adopted its safeguards (activity guard, .pre-dream
+  backup, archive threshold) into the policy above.
