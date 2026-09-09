@@ -93,6 +93,11 @@ func main() {
 	shutdownAll(targets)
 
 	// --- 1. memory: boot all stock, measure; slim, measure.
+	// simslim state persists across reboots, so force stock first.
+	for _, u := range targets {
+		must(bootAndAwait(ctx, u))
+		must(slimOff(ctx, u))
+	}
 	for _, u := range targets {
 		must(bootAndAwait(ctx, u))
 	}
