@@ -15,6 +15,14 @@ We use a [GitHub project](https://github.com/users/espetro/projects/20) as proje
 
 Issues #1–#21 cover M1 milestone tasks. M2 hardening tracked separately.
 
+## Memory (cross-session recall)
+
+Read `.agents/MEMORY.md` before deep work: it defines this repo's memory
+layout and compaction ("dreaming") policy. Skim `.agents/notes/` (newest
+first) for findings touching your task, and write durable discoveries back
+as dated notes there. `.agents/drafts/` and `.agents/plans/` are gitignored
+scratch; `.agents/notes/` and `.agents/docs/` are committed.
+
 ## Current release
 
 v0.2.0 — cross-platform support (Windows/Linux), native service install, hosted doc site. Branch `main` holds released commits. Use `develop` for
