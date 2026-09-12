@@ -58,7 +58,7 @@ func LoadOrCreate(path string) (string, error) {
 // WriteFile persists token at path with 0600 permissions, creating parent
 // directories as needed (0755 for the dirs; the file itself stays 0600).
 func WriteFile(path, token string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return fmt.Errorf("creating token dir: %w", err)
 	}
 	if err := os.WriteFile(path, []byte(token), tokenPerm); err != nil {
@@ -83,7 +83,7 @@ func WriteSnippet(snippetPath, url, token string) error {
 }
 `, url, token)
 
-	if err := os.MkdirAll(filepath.Dir(snippetPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(snippetPath), 0o750); err != nil {
 		return fmt.Errorf("creating snippet dir: %w", err)
 	}
 	if err := os.WriteFile(snippetPath, []byte(snippet), tokenPerm); err != nil {

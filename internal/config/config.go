@@ -21,9 +21,20 @@ type Config struct {
 
 // ServerConfig configures the HTTP server.
 type ServerConfig struct {
-	Listen    string `yaml:"listen"`     // MCPSIM_LISTEN
-	LogLevel  string `yaml:"log_level"`  // MCPSIM_LOG_LEVEL
-	LogFormat string `yaml:"log_format"` // MCPSIM_LOG_FORMAT
+	Listen    string     `yaml:"listen"`     // MCPSIM_LISTEN
+	LogLevel  string     `yaml:"log_level"`  // MCPSIM_LOG_LEVEL
+	LogFormat string     `yaml:"log_format"` // MCPSIM_LOG_FORMAT
+	Auth      AuthConfig `yaml:"auth"`
+}
+
+// AuthConfig configures HTTP bearer authentication. stdio is always auth free.
+type AuthConfig struct {
+	// Enabled is on by default; --insecure-no-auth / MCPSIM_INSECURE_NO_AUTH
+	// turn it off (gated, see internal/auth gate).
+	Enabled bool `yaml:"enabled"` // MCPSIM_INSECURE_NO_AUTH (inverted)
+	// Token is a static bearer token; when empty one is generated on first
+	// boot and persisted to ~/.config/mcp-sim/token.
+	Token string `yaml:"token"` // MCPSIM_AUTH_TOKEN
 }
 
 // PlatformsConfig holds per-platform configuration.
@@ -106,6 +117,9 @@ func defaultConfig() Config {
 			Listen:    ":9090",
 			LogLevel:  "info",
 			LogFormat: "text",
+			Auth: AuthConfig{
+				Enabled: true,
+			},
 		},
 		Platforms: PlatformsConfig{
 			IOS: IOSConfig{
@@ -152,6 +166,14 @@ func Load() (Config, error) {
 	}
 	if v := os.Getenv("MCPSIM_LOG_FORMAT"); v != "" {
 		cfg.Server.LogFormat = v
+	}
+	if v := os.Getenv("MCPSIM_AUTH_TOKEN"); v != "" {
+		cfg.Server.Auth.Token = v
+	}
+	if v := os.Getenv("MCPSIM_INSECURE_NO_AUTH"); v != "" {
+		if disable, err := strconv.ParseBool(v); err == nil && disable {
+			cfg.Server.Auth.Enabled = false
+		}
 	}
 	if v := os.Getenv("MCPSIM_IOS_ENABLED"); v != "" {
 		cfg.Platforms.IOS.Enabled, _ = strconv.ParseBool(v)
