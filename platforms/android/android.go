@@ -24,6 +24,7 @@ type Platform struct {
 	javaHome    string
 	emulatorBin string
 	avdPortMap  map[string]int // AVD name → port
+	portMu      sync.Mutex     // guards avdPortMap (MCP tool calls run concurrently)
 
 	// ATD (Automated Test Device) settings from config.AndroidConfig.
 	imageTag      string
@@ -180,7 +181,9 @@ func (p *Platform) List(ctx context.Context) ([]contract.Device, error) {
 	var devs []contract.Device
 	for _, name := range avds {
 		info := p.tagFor(name)
+		p.portMu.Lock()
 		port, ok := p.avdPortMap[name]
+		p.portMu.Unlock()
 		state := contract.DeviceStateStopped
 		if ok {
 			serial := fmt.Sprintf("emulator-%d", port)
@@ -229,7 +232,9 @@ func (p *Platform) Start(ctx context.Context, target string, opts contract.Start
 		return contract.Device{}, fmt.Errorf("emulator start: %w", err)
 	}
 
+	p.portMu.Lock()
 	p.avdPortMap[target] = port
+	p.portMu.Unlock()
 	serial := fmt.Sprintf("emulator-%d", port)
 
 	// Wait for adb to register the device.
@@ -254,7 +259,9 @@ func (p *Platform) Start(ctx context.Context, target string, opts contract.Start
 
 // Stop stops an emulator.
 func (p *Platform) Stop(ctx context.Context, target string) error {
+	p.portMu.Lock()
 	port, ok := p.avdPortMap[target]
+	p.portMu.Unlock()
 	if !ok {
 		return fmt.Errorf("no port mapping for AVD: %s", target)
 	}
@@ -265,7 +272,9 @@ func (p *Platform) Stop(ctx context.Context, target string) error {
 
 // State returns the state of an emulator.
 func (p *Platform) State(ctx context.Context, target string) (contract.DeviceState, error) {
+	p.portMu.Lock()
 	port, ok := p.avdPortMap[target]
+	p.portMu.Unlock()
 	if !ok {
 		// Try to discover port from adb devices.
 		out, err := p.adbCmd(ctx, "devices").Output()
@@ -285,7 +294,9 @@ func (p *Platform) State(ctx context.Context, target string) (contract.DeviceSta
 			serial := parts[0]
 			if strings.HasPrefix(serial, "emulator-") {
 				if n, err := strconv.Atoi(strings.TrimPrefix(serial, "emulator-")); err == nil {
+					p.portMu.Lock()
 					p.avdPortMap[target] = n
+					p.portMu.Unlock()
 					port = n
 					break
 				}
@@ -344,7 +355,9 @@ func (p *Platform) Wipe(ctx context.Context, target string) error {
 
 // OpenURL opens a deep link on the emulator.
 func (p *Platform) OpenURL(ctx context.Context, target, url string) error {
+	p.portMu.Lock()
 	port, ok := p.avdPortMap[target]
+	p.portMu.Unlock()
 	if !ok {
 		return fmt.Errorf("no port mapping for AVD: %s", target)
 	}
