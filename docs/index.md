@@ -5,6 +5,7 @@ MCP server for iOS Simulator and Android Emulator lifecycle management.
 ## Guides
 
 - [Agent setup](agent-setup.md) — copyable setup spec for coding agents
+- [Authentication](auth.md) — bearer token auth for the HTTP surface
 - [Architecture](architecture.md) — layers and embedding the orchestrator
 - [simslim integration](simslim.md) — optional iOS simulator memory slimming
 - [Tailscale setup](tailscale.md) — running over Tailscale

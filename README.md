@@ -50,6 +50,9 @@ Precedence: CLI flags > env vars > YAML (`~/.config/mcp-sim/config.yaml`, or `$M
 | `MCPSIM_LOG_LEVEL` | `server.log_level` | log level |
 | `MCPSIM_LOG_FORMAT` | `server.log_format` | log format |
 | `MCPSIM_CONFIG` | (n/a) | path to config file |
+| `MCPSIM_AUTH_TOKEN` | `server.auth.token` | bearer token for `/mcp` (HTTP); see [docs/auth.md](docs/auth.md) |
+| `MCPSIM_INSECURE_NO_AUTH` | `server.auth.enabled` (inverted) | disable bearer auth (gated on non-loopback listeners) |
+| `MCPSIM_TRUSTED_NETWORK` | (n/a) | set `true` to acknowledge a trusted network and satisfy the insecure-no-auth gate |
 | `MCPSIM_IOS_ENABLED` | `platforms.ios.enabled` | force iOS adapter on/off |
 | `MCPSIM_DEVELOPER_DIR` | `platforms.ios.developer_dir` | xcode-select developer dir |
 | `MCPSIM_IOS_SLIM_ENABLED` | `platforms.ios.slim.enabled` | enable simslim integration |
@@ -164,6 +167,7 @@ See [docs/architecture.md](docs/architecture.md).
 Hosted: **https://espetro.github.io/mcp-sim/**
 
 - [Agent setup](docs/agent-setup.md): copyable setup spec for coding agents
+- [Authentication](docs/auth.md): bearer token auth for the HTTP surface
 - [Architecture](docs/architecture.md): layers and embedding
 - [simslim integration](docs/simslim.md): optional iOS simulator memory slimming (~4x)
 - [Tailscale setup](docs/tailscale.md): running over Tailscale
