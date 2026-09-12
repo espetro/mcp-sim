@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/espetro/mcp-sim/internal/auth"
 	"github.com/espetro/mcp-sim/internal/bootstrap"
 	"github.com/espetro/mcp-sim/internal/config"
 	applog "github.com/espetro/mcp-sim/internal/log"
@@ -146,6 +147,8 @@ func runServe(prog string, args []string, stdout io.Writer) error {
 	fs.SetOutput(stdout)
 	listenAddr := fs.String("listen", "", "Address to bind (overrides config)")
 	configPath := fs.String("config", "", "Path to YAML config file")
+	noAuth := fs.Bool("insecure-no-auth", false, "Disable bearer auth on /mcp (gated, see --insecure-no-auth-ack)")
+	noAuthAck := fs.Bool("insecure-no-auth-ack", false, "Acknowledge the risk of no auth on a non-loopback listen address")
 	fs.Usage = func() { fmt.Fprint(stdout, usageServe) }
 	// Re-prepend the program name so ContinueOnError prints "serve -h".
 	if err := fs.Parse(args); err != nil {
@@ -167,7 +170,13 @@ func runServe(prog string, args []string, stdout io.Writer) error {
 	_ = listenAddr
 	_ = configPath
 	// Dispatch to the existing handler.
-	return serveImpl(prog, *listenAddr, *configPath)
+	return serveImpl(prog, *listenAddr, *configPath, authFlags{noAuth: *noAuth, noAuthAck: *noAuthAck})
+}
+
+// authFlags carries the CLI-only insecure-no-auth flags applied after Load.
+type authFlags struct {
+	noAuth    bool
+	noAuthAck bool
 }
 
 // runMCP parses mcp-specific flags and starts the stdio server.
@@ -175,6 +184,8 @@ func runMCP(prog string, args []string, stdout io.Writer) error {
 	fs := flag.NewFlagSet(cmdMCP, flag.ContinueOnError)
 	fs.SetOutput(stdout)
 	configPath := fs.String("config", "", "Path to YAML config file")
+	fs.Bool("insecure-no-auth", false, "Ignored over stdio (stdio is always auth free)")
+	fs.Bool("insecure-no-auth-ack", false, "Ignored over stdio")
 	fs.Usage = func() { fmt.Fprint(stdout, usageMCP) }
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -205,6 +216,8 @@ func runService(prog string, args []string, stdout io.Writer) error {
 	fs.SetOutput(stdout)
 	listenAddr := fs.String("listen", "", "Address to bind (overrides config)")
 	configPath := fs.String("config", "", "Path to YAML config file")
+	noAuth := fs.Bool("insecure-no-auth", false, "Disable bearer auth (gated, see --insecure-no-auth-ack); carried to \"run\"")
+	noAuthAck := fs.Bool("insecure-no-auth-ack", false, "Acknowledge the risk of no auth on a non-loopback listen address; carried to \"run\"")
 	userService := fs.Bool("user", false, "Install as a per-user service (no root required; unsupported on Windows)")
 	fs.Usage = func() { fmt.Fprint(stdout, usageService) }
 	if err := fs.Parse(args[1:]); err != nil {
@@ -222,6 +235,12 @@ func runService(prog string, args []string, stdout io.Writer) error {
 	if *configPath != "" {
 		svcArgs = append(svcArgs, "--config", *configPath)
 	}
+	if *noAuth {
+		svcArgs = append(svcArgs, "--insecure-no-auth")
+	}
+	if *noAuthAck {
+		svcArgs = append(svcArgs, "--insecure-no-auth-ack")
+	}
 
 	svcConfig, err := svc.BuildConfig(svcArgs, *userService)
 	if err != nil {
@@ -234,6 +253,12 @@ func runService(prog string, args []string, stdout io.Writer) error {
 	}
 	if *listenAddr != "" {
 		cfg.Server.Listen = *listenAddr
+	}
+	if *noAuth {
+		if err := auth.CheckInsecureNoAuth(cfg.Server.Listen, auth.GateOptions{Ack: *noAuthAck}); err != nil {
+			return err
+		}
+		cfg.Server.Auth.Enabled = false
 	}
 
 	logger := applog.New(cfg.Server.LogLevel, cfg.Server.LogFormat)
@@ -281,7 +306,7 @@ func serviceStatusString(status kservice.Status) string {
 
 // serveImpl and mcpImpl are the actual implementation of each subcommand.
 // Extracted so run() stays small and command flags parse first.
-func serveImpl(prog, listenAddr, configPath string) error {
+func serveImpl(prog, listenAddr, configPath string, flags authFlags) error {
 	_ = configPath // TODO: pass through to config.Load; env override preserved
 	cfg, err := config.Load()
 	if err != nil {
@@ -289,6 +314,12 @@ func serveImpl(prog, listenAddr, configPath string) error {
 	}
 	if listenAddr != "" {
 		cfg.Server.Listen = listenAddr
+	}
+	if flags.noAuth {
+		if err := auth.CheckInsecureNoAuth(cfg.Server.Listen, auth.GateOptions{Ack: flags.noAuthAck}); err != nil {
+			return err
+		}
+		cfg.Server.Auth.Enabled = false
 	}
 
 	logger := applog.New(cfg.Server.LogLevel, cfg.Server.LogFormat)
@@ -323,6 +354,12 @@ func mcpImpl(prog, configPath string) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
+	}
+	// stdio is spawned by the agent itself and is auth free by design:
+	// warn (do not error) if auth settings are present so agent UX stays smooth.
+	if !cfg.Server.Auth.Enabled || cfg.Server.Auth.Token != "" || os.Getenv("MCPSIM_AUTH_TOKEN") != "" {
+		logger := applog.New(cfg.Server.LogLevel, cfg.Server.LogFormat)
+		logger.Warn("stdio transport is auth free; auth config ignored (use serve/service for bearer auth)")
 	}
 
 	logger := applog.New(cfg.Server.LogLevel, cfg.Server.LogFormat)
