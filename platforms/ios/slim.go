@@ -311,3 +311,37 @@ var (
 	_ contract.Optimizer = (*slimmer)(nil)
 	_ io.Writer          = (*bytes.Buffer)(nil) // keep io import if unused paths change
 )
+
+// Optimizer delegation: the orchestrator reaches the simslim-backed
+// optimizer through contract.As[contract.Optimizer] on the Platform, so
+// Platform must itself implement the interface and forward to the slimmer.
+
+func (p *Platform) Optimize(ctx context.Context, target string, o contract.OptimizeOpts) error {
+	if p.slim == nil {
+		return fmt.Errorf("simslim optimizer not enabled")
+	}
+	return p.slim.Optimize(ctx, target, o)
+}
+
+func (p *Platform) Restore(ctx context.Context, target string) error {
+	if p.slim == nil {
+		return fmt.Errorf("simslim optimizer not enabled")
+	}
+	return p.slim.Restore(ctx, target)
+}
+
+func (p *Platform) OptimizeStatus(ctx context.Context, target string) (contract.OptimizeStatus, error) {
+	if p.slim == nil {
+		return contract.OptimizeStatus{}, fmt.Errorf("simslim optimizer not enabled")
+	}
+	return p.slim.OptimizeStatus(ctx, target)
+}
+
+func (p *Platform) Measure(ctx context.Context, target string) (contract.ResourceUsage, error) {
+	if p.slim == nil {
+		return contract.ResourceUsage{}, fmt.Errorf("simslim optimizer not enabled")
+	}
+	return p.slim.Measure(ctx, target)
+}
+
+var _ contract.Optimizer = (*Platform)(nil)
