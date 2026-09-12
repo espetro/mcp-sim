@@ -52,6 +52,9 @@ func BuildOrchestrator(ctx context.Context, cfg config.Config, logger *slog.Logg
 			platformNames = append(platformNames, androidPlatform.Name())
 		}
 	}
+	if err := maybeRegisterRedroid(ctx, &opts, &platformNames, logger); err != nil {
+		return nil, fmt.Errorf("redroid platform: %w", err)
+	}
 	if cfg.Controllers.AgentDevice.Enabled {
 		c := agentdevice.New(cfg.Controllers.AgentDevice)
 		opts = append(opts, orchestrator.WithController(c))
