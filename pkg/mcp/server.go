@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -190,6 +191,60 @@ func NewServer(orch *orchestrator.Orchestrator, logger *slog.Logger) *Server {
 		}
 		info, err := orch.ControllerStatus(ctx, in.Name)
 		return nil, info, err
+	})
+
+	// stream_info
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "stream_info",
+		Description: "Get on demand GUI mirroring guidance for a device (scrcpy over adb TCP/IP on Android).",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in struct {
+		Platform string `json:"platform"`
+		Target   string `json:"target"`
+	}) (*mcp.CallToolResult, struct {
+		Mirroring string `json:"mirroring,omitempty"`
+		Command   string `json:"command,omitempty"`
+		Supported bool   `json:"supported"`
+		Reason    string `json:"reason,omitempty"`
+	}, error) {
+		if in.Platform != "android" {
+			return nil, struct {
+				Mirroring string `json:"mirroring,omitempty"`
+				Command   string `json:"command,omitempty"`
+				Supported bool   `json:"supported"`
+				Reason    string `json:"reason,omitempty"`
+			}{Reason: "stream_info only supports the android platform"}, fmt.Errorf("unsupported platform %q", in.Platform)
+		}
+		state, err := orch.State(ctx, "android", in.Target)
+		if err != nil {
+			return nil, struct {
+				Mirroring string `json:"mirroring,omitempty"`
+				Command   string `json:"command,omitempty"`
+				Supported bool   `json:"supported"`
+				Reason    string `json:"reason,omitempty"`
+			}{}, err
+		}
+		if state != contract.DeviceStateRunning {
+			return nil, struct {
+				Mirroring string `json:"mirroring,omitempty"`
+				Command   string `json:"command,omitempty"`
+				Supported bool   `json:"supported"`
+				Reason    string `json:"reason,omitempty"`
+			}{Reason: "device is not running"}, nil
+		}
+		return nil, struct {
+			Mirroring string `json:"mirroring,omitempty"`
+			Command   string `json:"command,omitempty"`
+			Supported bool   `json:"supported"`
+			Reason    string `json:"reason,omitempty"`
+		}{
+			Mirroring: "scrcpy",
+			Supported: true,
+			Command: "Use `adb devices` to find the serial for the AVD named " + in.Target +
+				", then: `adb -s <serial> tcpip 5555`, `adb connect <host>:5555`, " +
+				"`scrcpy --tcpip=<host>:5555`. " +
+				"For screenshots without mirroring (and on ATD images, where scrcpy is unreliable): " +
+				"`adb -s <serial> exec-out screencap -p > screen.png`.",
+		}, nil
 	})
 
 	// controller_status
