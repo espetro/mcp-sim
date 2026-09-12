@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/espetro/mcp-sim/internal/auth"
@@ -27,6 +28,7 @@ const (
 	cmdServe   = "serve"
 	cmdMCP     = "mcp"
 	cmdService = "service"
+	cmdAuth    = "auth"
 	cmdVersion = "version"
 )
 
@@ -39,6 +41,7 @@ Commands:
   serve       Start the HTTP/SSE server (long-lived, default for service mode)
   mcp         Run over stdio (spawnable per agent session)
   service     Install/manage mcp-sim as a native OS service
+  auth        Print auth artifacts (client config snippet)
   version     Print version information
   help        Print this message
 
@@ -98,6 +101,22 @@ Flags (only meaningful with "install"):
   -h, --help        Show this help
 `
 
+const usageAuth = `mcp-sim auth — print auth artifacts
+
+Usage:
+  mcp-sim auth print-snippet [flags]
+
+Subcommands:
+  print-snippet  Print the client config snippet (mcpServers JSON with the
+                 bearer token) to stdout
+
+Flags:
+  -config, --config  Path to the snippet file (default
+                     ~/.config/mcp-sim/client-snippet.json, or $MCPSIM_CONFIG
+                     as its directory)
+  -h, --help        Show this help
+`
+
 func main() {
 	if err := run(os.Args[0], os.Args[1:], os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
@@ -122,6 +141,8 @@ func run(prog string, args []string, stdout io.Writer) error {
 		return runMCP(prog, args[1:], stdout)
 	case cmdService:
 		return runService(prog, args[1:], stdout)
+	case cmdAuth:
+		return runAuth(prog, args[1:], stdout)
 	case "-v", "--version":
 		return printVersion(stdout)
 	default:
@@ -291,6 +312,54 @@ func runService(prog string, args []string, stdout io.Writer) error {
 		os.Exit(2)
 		return nil // unreachable
 	}
+}
+
+// runAuth dispatches the auth subcommand.
+func runAuth(prog string, args []string, stdout io.Writer) error {
+	if len(args) == 0 || isHelpFlag(args[0]) || args[0] == cmdHelp {
+		fmt.Fprint(stdout, usageAuth)
+		return nil
+	}
+	switch args[0] {
+	case "print-snippet":
+		return runAuthPrintSnippet(prog, args[1:], stdout)
+	default:
+		fmt.Fprintf(os.Stderr, "%s: unknown auth subcommand %q\n\n", prog, args[0])
+		fmt.Fprint(stdout, usageAuth)
+		os.Exit(2)
+		return nil // unreachable
+	}
+}
+
+// runAuthPrintSnippet prints the client snippet to stdout so agents can
+// retrieve the auth config non interactively after first boot.
+func runAuthPrintSnippet(prog string, args []string, stdout io.Writer) error {
+	fs := flag.NewFlagSet("auth print-snippet", flag.ContinueOnError)
+	fs.SetOutput(stdout)
+	snippetPath := fs.String("config", "", "Path to the snippet file")
+	fs.Usage = func() { fmt.Fprint(stdout, usageAuth) }
+	if err := fs.Parse(args); err != nil {
+		if err == flag.ErrHelp {
+			return nil
+		}
+		fmt.Fprint(stdout, usageAuth)
+		return err
+	}
+	path := *snippetPath
+	if path == "" {
+		path = bootstrap.DefaultSnippetPath()
+		// Support $MCPSIM_CONFIG style override: use its directory.
+		if cfgPath := os.Getenv("MCPSIM_CONFIG"); cfgPath != "" {
+			path = filepath.Join(filepath.Dir(cfgPath), "client-snippet.json")
+		}
+	}
+	// #nosec G703 -- path comes from operator-supplied CLI flag or env, same trust level as config.Load
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("reading snippet %s (run serve once to generate it): %w", path, err)
+	}
+	_, err = stdout.Write(data)
+	return err
 }
 
 func serviceStatusString(status kservice.Status) string {
