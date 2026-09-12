@@ -23,6 +23,9 @@ type Device struct {
 	State    DeviceState `json:"state"`
 	// OS version if known
 	Version string `json:"version,omitempty"`
+	// Android only: ATD (Automated Test Device) image flag and estimated RAM.
+	ATD      bool `json:"atd,omitempty"`
+	EstRAMMB int  `json:"est_ram_mb,omitempty"`
 }
 
 // StartOpts controls how a device is started.

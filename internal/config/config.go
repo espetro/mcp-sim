@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -56,6 +58,34 @@ type AndroidConfig struct {
 	AndroidHome string `yaml:"android_home"` // MCPSIM_ANDROID_HOME
 	JavaHome    string `yaml:"java_home"`    // MCPSIM_JAVA_HOME
 	EmulatorBin string `yaml:"emulator_bin"` // MCPSIM_ANDROID_EMULATOR_BIN
+	// ImageTag selects the system image tag family: "aosp_atd", "google_atd"
+	// or "default" (the tag the AVD was created with). ATD images are lean
+	// automated-test-device builds with much lower RAM needs.
+	ImageTag string `yaml:"image_tag"` // MCPSIM_ANDROID_IMAGE_TAG
+	// API is the Android API level (30-33 for ATD images).
+	API int `yaml:"api"` // MCPSIM_ANDROID_API
+	// ABI is the system image ABI (e.g. arm64-v8a on arm64 hosts).
+	ABI string `yaml:"abi"` // MCPSIM_ANDROID_ABI
+	// RAMSize is emulator RAM in MB; used with ATD images (-memory).
+	RAMSize int `yaml:"ram_size"` // MCPSIM_ANDROID_RAM_SIZE
+	// HeapSize is the emulator heap size in MB.
+	HeapSize int `yaml:"heap_size"` // MCPSIM_ANDROID_HEAP_SIZE
+	// AutoProvision provisions missing ATD AVDs via sdkmanager/avdmanager.
+	AutoProvision bool `yaml:"auto_provision"` // MCPSIM_ANDROID_AUTO_PROVISION
+}
+
+// AllowedImageTags lists the valid values for AndroidConfig.ImageTag.
+var AllowedImageTags = []string{"aosp_atd", "google_atd", "default"}
+
+// Validate checks the Android config for semantic errors.
+func (c AndroidConfig) Validate() error {
+	if c.API != 0 && (c.API < 30 || c.API > 33) {
+		return fmt.Errorf("android.api must be between 30 and 33, got %d", c.API)
+	}
+	if c.ImageTag != "" && !slices.Contains(AllowedImageTags, c.ImageTag) {
+		return fmt.Errorf("android.image_tag must be one of %s, got %q", strings.Join(AllowedImageTags, ", "), c.ImageTag)
+	}
+	return nil
 }
 
 // ControllersConfig holds per-controller configuration.
@@ -71,7 +101,7 @@ type AgentDeviceConfig struct {
 
 // Built-in defaults.
 func defaultConfig() Config {
-	return Config{
+	cfg := Config{
 		Server: ServerConfig{
 			Listen:    ":9090",
 			LogLevel:  "info",
@@ -82,16 +112,20 @@ func defaultConfig() Config {
 				Enabled: true,
 			},
 			Android: AndroidConfig{
-				Enabled: true,
-			},
-		},
-		Controllers: ControllersConfig{
-			AgentDevice: AgentDeviceConfig{
-				Enabled:   true,
-				ProxyPort: 9000,
+				Enabled:  true,
+				ImageTag: "default",
+				API:      33,
+				RAMSize:  1536,
+				HeapSize: 192,
 			},
 		},
 	}
+	if runtime.GOARCH == "arm64" {
+		cfg.Platforms.Android.ABI = "arm64-v8a"
+	} else {
+		cfg.Platforms.Android.ABI = "x86_64"
+	}
+	return cfg
 }
 
 // Load reads config from: YAML file > env vars override > defaults.
@@ -158,6 +192,30 @@ func Load() (Config, error) {
 	if v := os.Getenv("MCPSIM_ANDROID_EMULATOR_BIN"); v != "" {
 		cfg.Platforms.Android.EmulatorBin = v
 	}
+	if v := os.Getenv("MCPSIM_ANDROID_IMAGE_TAG"); v != "" {
+		cfg.Platforms.Android.ImageTag = v
+	}
+	if v := os.Getenv("MCPSIM_ANDROID_API"); v != "" {
+		if api, err := strconv.Atoi(v); err == nil {
+			cfg.Platforms.Android.API = api
+		}
+	}
+	if v := os.Getenv("MCPSIM_ANDROID_ABI"); v != "" {
+		cfg.Platforms.Android.ABI = v
+	}
+	if v := os.Getenv("MCPSIM_ANDROID_RAM_SIZE"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.Platforms.Android.RAMSize = n
+		}
+	}
+	if v := os.Getenv("MCPSIM_ANDROID_HEAP_SIZE"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.Platforms.Android.HeapSize = n
+		}
+	}
+	if v := os.Getenv("MCPSIM_ANDROID_AUTO_PROVISION"); v != "" {
+		cfg.Platforms.Android.AutoProvision, _ = strconv.ParseBool(v)
+	}
 	if v := os.Getenv("MCPSIM_AGENT_DEVICE_ENABLED"); v != "" {
 		cfg.Controllers.AgentDevice.Enabled, _ = strconv.ParseBool(v)
 	}
@@ -165,6 +223,10 @@ func Load() (Config, error) {
 		if port, err := strconv.Atoi(v); err == nil {
 			cfg.Controllers.AgentDevice.ProxyPort = port
 		}
+	}
+
+	if err := cfg.Platforms.Android.Validate(); err != nil {
+		return Config{}, fmt.Errorf("invalid android config: %w", err)
 	}
 
 	return cfg, nil

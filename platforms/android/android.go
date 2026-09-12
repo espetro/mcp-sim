@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/espetro/mcp-sim/internal/config"
@@ -23,6 +24,25 @@ type Platform struct {
 	javaHome    string
 	emulatorBin string
 	avdPortMap  map[string]int // AVD name → port
+
+	// ATD (Automated Test Device) settings from config.AndroidConfig.
+	imageTag      string
+	api           int
+	abi           string
+	ramSizeMB     int
+	heapSizeMB    int
+	autoProvision bool
+
+	// avdTagCache caches per-AVD ATD annotations (List may be called
+	// concurrently by the orchestrator).
+	tagMu       sync.Mutex
+	avdTagCache map[string]tagInfo
+}
+
+// tagInfo is the cached ATD annotation for an AVD.
+type tagInfo struct {
+	atd      bool
+	estRAMMB int
 }
 
 // New creates a new Android platform adapter.
@@ -74,10 +94,17 @@ func New(cfg config.AndroidConfig) (*Platform, error) {
 	}
 
 	return &Platform{
-		androidHome: androidHome,
-		javaHome:    javaHome,
-		emulatorBin: emulatorBin,
-		avdPortMap:  make(map[string]int),
+		androidHome:   androidHome,
+		javaHome:      javaHome,
+		emulatorBin:   emulatorBin,
+		avdPortMap:    make(map[string]int),
+		imageTag:      cfg.ImageTag,
+		api:           cfg.API,
+		abi:           cfg.ABI,
+		ramSizeMB:     cfg.RAMSize,
+		heapSizeMB:    cfg.HeapSize,
+		autoProvision: cfg.AutoProvision,
+		avdTagCache:   make(map[string]tagInfo),
 	}, nil
 }
 
@@ -152,6 +179,7 @@ func (p *Platform) List(ctx context.Context) ([]contract.Device, error) {
 
 	var devs []contract.Device
 	for _, name := range avds {
+		info := p.tagFor(name)
 		port, ok := p.avdPortMap[name]
 		state := contract.DeviceStateStopped
 		if ok {
@@ -165,6 +193,8 @@ func (p *Platform) List(ctx context.Context) ([]contract.Device, error) {
 			Name:     name,
 			Platform: "android",
 			State:    state,
+			ATD:      info.atd,
+			EstRAMMB: info.estRAMMB,
 		})
 	}
 	return devs, nil
@@ -180,7 +210,16 @@ func (p *Platform) Start(ctx context.Context, target string, opts contract.Start
 	}
 
 	args := []string{"-avd", target, "-port", strconv.Itoa(port), "-no-snapshot-load"}
-	if opts.NoWindow {
+
+	tag, tagErr := p.resolveTargetTag(ctx, target)
+	isATD := tagErr == nil && strings.Contains(tag, "atd")
+	if isATD {
+		ram := p.ramSizeMB
+		if ram == 0 {
+			ram = 1536
+		}
+		args = append(args, atdFlags(ram)...)
+	} else if opts.NoWindow {
 		args = append(args, "-no-window")
 	}
 
