@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Android ATD image support: `aosp_atd`/`google_atd` headless images run markedly lighter (~1.5 to 2 GB host RAM per instance vs 3 to 4 GB for standard images). New config keys under `platforms.android` (`image_tag`, `api`, `abi`, `ram_size`, `heap_size`, `auto_provision`) with `MCPSIM_ANDROID_*` env equivalents, boot-time AVD auto provisioning via sdkmanager/avdmanager, ATD launch flags applied automatically when the target AVD's `config.ini` has an ATD tag, and `atd`/`est_ram_mb` annotations in `list_devices`/`get_state`. See `docs/android-atd.md`. Caveat: scrcpy mirroring is unreliable on ATD; use screenshots (`adb exec-out screencap`).
+- `stream_info` MCP tool returning scrcpy over TCP guidance for running Android devices and an explicit unsupported response otherwise. Standard images only; ATD falls back to `screencap`. See `docs/scrcpy.md`.
+- ReDroid platform scaffold (WIP, Linux hosts only): `platforms/redroid` implements the platform contract over the Docker CLI with adb connect, build-tag guarded to linux and off by default (`MCPSIM_REDROID_ENABLED`). Untested; macOS is not viable (Docker VMs lack binder kernel modules). See `docs/redroid.md`.
+
+### Added
+
 - Optional simslim integration for iOS: booted simulators can be slimmed (~4x less memory) via the `simslim` CLI (probed on PATH, requires >= 0.6.0). Opt-in via `platforms.ios.slim` config or `MCPSIM_IOS_SLIM_*` env vars; off by default. No new MCP tools — slimming folds into `boot_device` (`optimize` argument) and `get_state` (`optimizer` block). `wipe_device` re-applies slimming automatically when `on_boot` is set (erase resets overrides to stock). iOS < 18.5 runtimes fall back to `--no-reboot` session-only slimming with a surfaced warning. See `docs/simslim.md`.
 - `contract.Optimizer` optional platform interface (Optimize/Restore/OptimizeStatus/Measure) — simulator-agnostic extension point; Android can implement its own later.
 
