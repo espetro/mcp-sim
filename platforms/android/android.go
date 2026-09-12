@@ -226,7 +226,12 @@ func (p *Platform) Start(ctx context.Context, target string, opts contract.Start
 		args = append(args, "-no-window")
 	}
 
-	cmd := p.emulatorCmd(ctx, args...)
+	// Detach the emulator process from the request context: the emulator must
+	// outlive the boot_device call that spawned it (exec.CommandContext kills
+	// the child when the ctx is cancelled, which would tear the emulator down
+	// as soon as the HTTP response is flushed).
+	spawnCtx := context.WithoutCancel(ctx)
+	cmd := p.emulatorCmd(spawnCtx, args...)
 	setProcAttr(cmd)
 	if err := cmd.Start(); err != nil {
 		return contract.Device{}, fmt.Errorf("emulator start: %w", err)
@@ -279,7 +284,10 @@ func (p *Platform) State(ctx context.Context, target string) (contract.DeviceSta
 		// Try to discover port from adb devices.
 		out, err := p.adbCmd(ctx, "devices").Output()
 		if err != nil {
-			return contract.DeviceStateUnknown, err
+			// adb failure (e.g. server not running yet) means we cannot see the
+			// device; report stopped instead of erroring so Boot can proceed to
+			// Start (which spawns the emulator and warms adb itself).
+			return contract.DeviceStateStopped, nil
 		}
 		sc := bufio.NewScanner(bytes.NewReader(out))
 		for sc.Scan() {
@@ -310,7 +318,10 @@ func (p *Platform) State(ctx context.Context, target string) (contract.DeviceSta
 	serial := fmt.Sprintf("emulator-%d", port)
 	out, err := p.adbCmd(ctx, "-s", serial, "get-state").Output()
 	if err != nil {
-		return contract.DeviceStateUnknown, err
+		// The serial is not registered with adb (cold server, device gone):
+		// treat as stopped rather than a hard error, mirroring the discovery
+		// branch above.
+		return contract.DeviceStateStopped, nil
 	}
 	switch strings.TrimSpace(string(out)) {
 	case "device":
@@ -347,7 +358,8 @@ func (p *Platform) AwaitReady(ctx context.Context, target string, timeout time.D
 func (p *Platform) Wipe(ctx context.Context, target string) error {
 	_ = p.Stop(ctx, target)
 	// Restart with -wipe-data.
-	cmd := p.emulatorCmd(ctx, "-avd", target, "-wipe-data")
+	// Restart with -wipe-data; detached so it survives the request.
+	cmd := p.emulatorCmd(context.WithoutCancel(ctx), "-avd", target, "-wipe-data")
 	setProcAttr(cmd)
 	_ = cmd.Start()
 	return nil
