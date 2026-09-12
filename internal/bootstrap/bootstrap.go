@@ -106,7 +106,7 @@ func BuildHTTPServerWithAuth(ctx context.Context, cfg config.Config, logger *slo
 
 	handler := http.Handler(mcpServer.StreamableHTTPHandler())
 	if cfg.Server.Auth.Enabled && token != "" {
-		handler = auth.Middleware(token)(handler)
+		handler = auth.Middleware(token, "http://"+listenHostPort(cfg.Server.Listen)+auth.MetadataPath)(handler)
 	}
 
 	mux := http.NewServeMux()
