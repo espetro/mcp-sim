@@ -6,13 +6,18 @@
 
 ## Install (run this)
 
+The primary macOS channel is a Homebrew cask, which avoids Gatekeeper
+entirely:
+
 ```bash
-go install github.com/espetro/mcp-sim/cmd/mcp-sim@latest
+brew tap espetro/mcp-sim https://github.com/espetro/homebrew-mcp-sim
+brew install mcp-sim
 ```
 
-Homebrew: `brew install espetro/tap/mcp-sim` (tap pending; use `go install` until then). Prebuilt binaries: [releases](https://github.com/espetro/mcp-sim/releases).
-
-If `go` is missing: install Go 1.25+ first, then rerun the command above.
+Other channels: direct download with SHA256 verification, or
+`go install github.com/espetro/mcp-sim/cmd/mcp-sim@latest` (note: version
+ldflags are not injected this way). Full details in
+[docs/install.md](docs/install.md).
 
 ## Prerequisites
 
@@ -116,7 +121,10 @@ Paste this into your coding agent. The full spec with failure fallbacks is [docs
 Install and configure mcp-sim, an MCP server for iOS Simulator and Android
 Emulator lifecycle.
 
-1. Install: go install github.com/espetro/mcp-sim/cmd/mcp-sim@latest
+1. Install: prefer `brew install mcp-sim` (after `brew tap
+   espetro/mcp-sim https://github.com/espetro/homebrew-mcp-sim`), otherwise
+   `go install github.com/espetro/mcp-sim/cmd/mcp-sim@latest`. See
+   [docs/install.md](docs/install.md) for all channels.
 2. Detect prerequisites: run `xcode-select -p`, `adb version`, and
    `simslim --version`. A failing command means that platform is absent,
    not an error; proceed with what is available.
