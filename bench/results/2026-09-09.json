@@ -1,0 +1,439 @@
+{
+  "timestamp": "2026-09-09T07:10:53Z",
+  "machine": {
+    "model": "MacBookPro17,1",
+    "chip": "Apple M1",
+    "memory_gb": 8,
+    "macos": "26.6.2",
+    "simslim": "simslim 0.8.0",
+    "ios_runtime": "-- iOS --"
+  },
+  "memory": [
+    {
+      "label": "stock",
+      "udid": "CFCDFC2B-D364-42FC-B540-354B2507335E",
+      "phys_footprint_bytes": 3893416960,
+      "process_count": 249,
+      "swap_used_bytes": 7667774914
+    },
+    {
+      "label": "stock",
+      "udid": "97C43711-6E6C-4290-A639-8DFFA394A59D",
+      "phys_footprint_bytes": 2833267712,
+      "process_count": 196,
+      "swap_used_bytes": 7575500226
+    },
+    {
+      "label": "stock",
+      "udid": "4FA8BF81-749C-4DD7-9E02-EEF5681A4ED2",
+      "phys_footprint_bytes": 2552052736,
+      "process_count": 168,
+      "swap_used_bytes": 7441156669
+    },
+    {
+      "label": "slim",
+      "udid": "CFCDFC2B-D364-42FC-B540-354B2507335E",
+      "phys_footprint_bytes": 970481664,
+      "process_count": 70,
+      "swap_used_bytes": 5261817282
+    },
+    {
+      "label": "slim",
+      "udid": "97C43711-6E6C-4290-A639-8DFFA394A59D",
+      "phys_footprint_bytes": 979525632,
+      "process_count": 69,
+      "swap_used_bytes": 5261817282
+    },
+    {
+      "label": "slim",
+      "udid": "4FA8BF81-749C-4DD7-9E02-EEF5681A4ED2",
+      "phys_footprint_bytes": 962306048,
+      "process_count": 69,
+      "swap_used_bytes": 5261817282
+    }
+  ],
+  "latency": {
+    "stock_boot_ms": [
+      10838,
+      8683,
+      8708,
+      8778,
+      10149
+    ],
+    "slim_boot_ms": [
+      13499,
+      101547,
+      57962,
+      106439,
+      69180
+    ]
+  },
+  "wipe_reslim": {
+    "runs": 3,
+    "all_reslimmed": false
+  },
+  "seam": {
+    "iterations": 0,
+    "stock_ok": 15,
+    "stock_openurl_ok": 15,
+    "slim_ok": 15,
+    "slim_openurl_ok": 15
+  },
+  "mcp_vs_cli": {
+    "mcp": [
+      {
+        "step": "boot",
+        "mode": "mcp",
+        "ms": 16402,
+        "bytes_back": 146,
+        "ok": true
+      },
+      {
+        "step": "await",
+        "mode": "mcp",
+        "ms": 6878,
+        "bytes_back": 43,
+        "ok": true
+      },
+      {
+        "step": "state",
+        "mode": "mcp",
+        "ms": 1513,
+        "bytes_back": 50,
+        "ok": true
+      },
+      {
+        "step": "open_url",
+        "mode": "mcp",
+        "ms": 2302,
+        "bytes_back": 45,
+        "ok": true
+      },
+      {
+        "step": "wipe",
+        "mode": "mcp",
+        "ms": 5926,
+        "bytes_back": 133,
+        "ok": true
+      },
+      {
+        "step": "boot",
+        "mode": "mcp",
+        "ms": 12120,
+        "bytes_back": 146,
+        "ok": true
+      },
+      {
+        "step": "await",
+        "mode": "mcp",
+        "ms": 1110,
+        "bytes_back": 43,
+        "ok": true
+      },
+      {
+        "step": "state",
+        "mode": "mcp",
+        "ms": 292,
+        "bytes_back": 50,
+        "ok": true
+      },
+      {
+        "step": "open_url",
+        "mode": "mcp",
+        "ms": 20218,
+        "bytes_back": 115,
+        "ok": true
+      },
+      {
+        "step": "wipe",
+        "mode": "mcp",
+        "ms": 33438,
+        "bytes_back": 133,
+        "ok": true
+      },
+      {
+        "step": "boot",
+        "mode": "mcp",
+        "ms": 12749,
+        "bytes_back": 146,
+        "ok": true
+      },
+      {
+        "step": "await",
+        "mode": "mcp",
+        "ms": 875,
+        "bytes_back": 43,
+        "ok": true
+      },
+      {
+        "step": "state",
+        "mode": "mcp",
+        "ms": 186,
+        "bytes_back": 50,
+        "ok": true
+      },
+      {
+        "step": "open_url",
+        "mode": "mcp",
+        "ms": 27545,
+        "bytes_back": 115,
+        "ok": true
+      },
+      {
+        "step": "wipe",
+        "mode": "mcp",
+        "ms": 33391,
+        "bytes_back": 133,
+        "ok": true
+      },
+      {
+        "step": "boot",
+        "mode": "mcp",
+        "ms": 12548,
+        "bytes_back": 146,
+        "ok": true
+      },
+      {
+        "step": "await",
+        "mode": "mcp",
+        "ms": 743,
+        "bytes_back": 43,
+        "ok": true
+      },
+      {
+        "step": "state",
+        "mode": "mcp",
+        "ms": 209,
+        "bytes_back": 50,
+        "ok": true
+      },
+      {
+        "step": "open_url",
+        "mode": "mcp",
+        "ms": 23479,
+        "bytes_back": 115,
+        "ok": true
+      },
+      {
+        "step": "wipe",
+        "mode": "mcp",
+        "ms": 39183,
+        "bytes_back": 133,
+        "ok": true
+      },
+      {
+        "step": "boot",
+        "mode": "mcp",
+        "ms": 13588,
+        "bytes_back": 146,
+        "ok": true
+      },
+      {
+        "step": "await",
+        "mode": "mcp",
+        "ms": 815,
+        "bytes_back": 43,
+        "ok": true
+      },
+      {
+        "step": "state",
+        "mode": "mcp",
+        "ms": 162,
+        "bytes_back": 50,
+        "ok": true
+      },
+      {
+        "step": "open_url",
+        "mode": "mcp",
+        "ms": 20345,
+        "bytes_back": 115,
+        "ok": true
+      },
+      {
+        "step": "wipe",
+        "mode": "mcp",
+        "ms": 8949,
+        "bytes_back": 133,
+        "ok": true
+      }
+    ],
+    "cli": [
+      {
+        "step": "boot",
+        "mode": "cli",
+        "ms": 748,
+        "bytes_back": 0,
+        "ok": true
+      },
+      {
+        "step": "await",
+        "mode": "cli",
+        "ms": 62624,
+        "bytes_back": 12038,
+        "ok": true
+      },
+      {
+        "step": "state",
+        "mode": "cli",
+        "ms": 14261,
+        "bytes_back": 692,
+        "ok": true
+      },
+      {
+        "step": "open_url",
+        "mode": "cli",
+        "ms": 2505,
+        "bytes_back": 0,
+        "ok": true
+      },
+      {
+        "step": "wipe",
+        "mode": "cli",
+        "ms": 10720,
+        "bytes_back": 0,
+        "ok": true
+      },
+      {
+        "step": "boot",
+        "mode": "cli",
+        "ms": 662,
+        "bytes_back": 0,
+        "ok": true
+      },
+      {
+        "step": "await",
+        "mode": "cli",
+        "ms": 47021,
+        "bytes_back": 8556,
+        "ok": true
+      },
+      {
+        "step": "state",
+        "mode": "cli",
+        "ms": 11552,
+        "bytes_back": 692,
+        "ok": true
+      },
+      {
+        "step": "open_url",
+        "mode": "cli",
+        "ms": 3894,
+        "bytes_back": 0,
+        "ok": true
+      },
+      {
+        "step": "wipe",
+        "mode": "cli",
+        "ms": 22309,
+        "bytes_back": 0,
+        "ok": true
+      },
+      {
+        "step": "boot",
+        "mode": "cli",
+        "ms": 533,
+        "bytes_back": 0,
+        "ok": true
+      },
+      {
+        "step": "await",
+        "mode": "cli",
+        "ms": 37809,
+        "bytes_back": 5929,
+        "ok": true
+      },
+      {
+        "step": "state",
+        "mode": "cli",
+        "ms": 5047,
+        "bytes_back": 691,
+        "ok": true
+      },
+      {
+        "step": "open_url",
+        "mode": "cli",
+        "ms": 10604,
+        "bytes_back": 297,
+        "ok": false
+      },
+      {
+        "step": "wipe",
+        "mode": "cli",
+        "ms": 4106,
+        "bytes_back": 0,
+        "ok": true
+      },
+      {
+        "step": "boot",
+        "mode": "cli",
+        "ms": 756,
+        "bytes_back": 0,
+        "ok": true
+      },
+      {
+        "step": "await",
+        "mode": "cli",
+        "ms": 41133,
+        "bytes_back": 7443,
+        "ok": true
+      },
+      {
+        "step": "state",
+        "mode": "cli",
+        "ms": 5497,
+        "bytes_back": 691,
+        "ok": true
+      },
+      {
+        "step": "open_url",
+        "mode": "cli",
+        "ms": 2771,
+        "bytes_back": 0,
+        "ok": true
+      },
+      {
+        "step": "wipe",
+        "mode": "cli",
+        "ms": 24803,
+        "bytes_back": 0,
+        "ok": true
+      },
+      {
+        "step": "boot",
+        "mode": "cli",
+        "ms": 746,
+        "bytes_back": 0,
+        "ok": true
+      },
+      {
+        "step": "await",
+        "mode": "cli",
+        "ms": 64568,
+        "bytes_back": 10968,
+        "ok": true
+      },
+      {
+        "step": "state",
+        "mode": "cli",
+        "ms": 3654,
+        "bytes_back": 692,
+        "ok": true
+      },
+      {
+        "step": "open_url",
+        "mode": "cli",
+        "ms": 1470,
+        "bytes_back": 0,
+        "ok": true
+      },
+      {
+        "step": "wipe",
+        "mode": "cli",
+        "ms": 7204,
+        "bytes_back": 0,
+        "ok": true
+      }
+    ]
+  },
+  "mcp_contract_shape": "typed contract.Device: id=CFCDFC2B-D364-42FC-B540-354B2507335E state=booting platform=ios"
+}

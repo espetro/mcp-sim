@@ -1,0 +1,26 @@
+name: API diff
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  apidiff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run go-apidiff
+        uses: jba/go-apidiff@v1.1.0
+        with:
+          packages: './pkg/contract ./pkg/orchestrator'

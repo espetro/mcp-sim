@@ -40,3 +40,8 @@ config.local.yaml
 .slim/worktrees/
 .slim/worktrees.json
 # END oh-my-opencode-slim worktrees
+
+# Agent scratch: research drafts and plans stay local (a private DB of prior
+# research); notes and docs are committed for cross-session recall.
+.agents/drafts/
+.agents/plans/

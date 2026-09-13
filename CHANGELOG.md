@@ -7,7 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- Bearer token auth for the HTTP surface (stdio stays auth free): a single static token resolved by precedence (`MCPSIM_AUTH_TOKEN` env > `server.auth.token` config > first-boot generated), generated tokens persisted to `~/.config/mcp-sim/token` (0600, never rotated on restart) with a ready-to-paste `client-snippet.json` beside them. `/mcp` requires `Authorization: Bearer <token>` (401 + `WWW-Authenticate: Bearer` challenge, constant-time compare); `/healthz` is exempt; RFC 9728 protected resource metadata is served unauthenticated at `/.well-known/oauth-protected-resource`. New `mcp-sim auth print-snippet` subcommand for non-interactive client setup. `--insecure-no-auth` / `MCPSIM_INSECURE_NO_AUTH` disables auth but is refused on non-loopback listen addresses (including `:9090` and `0.0.0.0`) without `--insecure-no-auth-ack` or `MCPSIM_TRUSTED_NETWORK=true`. See `docs/auth.md`. Multi-token `tokens.yaml` and OAuth resource-server mode are v0.4 stubs; mcp-sim will never be an authorization server.
+- Android ATD image support: `aosp_atd`/`google_atd` headless images run markedly lighter (~1.5 to 2 GB host RAM per instance vs 3 to 4 GB for standard images). New config keys under `platforms.android` (`image_tag`, `api`, `abi`, `ram_size`, `heap_size`, `auto_provision`) with `MCPSIM_ANDROID_*` env equivalents, boot-time AVD auto provisioning via sdkmanager/avdmanager, ATD launch flags applied automatically when the target AVD's `config.ini` has an ATD tag, and `atd`/`est_ram_mb` annotations in `list_devices`/`get_state`. See `docs/android-atd.md`. Caveat: scrcpy mirroring is unreliable on ATD; use screenshots (`adb exec-out screencap`).
+- `stream_info` MCP tool returning scrcpy over TCP guidance for running Android devices and an explicit unsupported response otherwise. Standard images only; ATD falls back to `screencap`. See `docs/scrcpy.md`.
+- ReDroid platform scaffold (WIP, Linux hosts only): `platforms/redroid` implements the platform contract over the Docker CLI with adb connect, build-tag guarded to linux and off by default (`MCPSIM_REDROID_ENABLED`). Untested; macOS is not viable (Docker VMs lack binder kernel modules). See `docs/redroid.md`.
+
+### Added
+
+- Optional simslim integration for iOS: booted simulators can be slimmed (~4x less memory) via the `simslim` CLI (probed on PATH, requires >= 0.6.0). Opt-in via `platforms.ios.slim` config or `MCPSIM_IOS_SLIM_*` env vars; off by default. No new MCP tools — slimming folds into `boot_device` (`optimize` argument) and `get_state` (`optimizer` block). `wipe_device` re-applies slimming automatically when `on_boot` is set (erase resets overrides to stock). iOS < 18.5 runtimes fall back to `--no-reboot` session-only slimming with a surfaced warning. See `docs/simslim.md`.
+- `contract.Optimizer` optional platform interface (Optimize/Restore/OptimizeStatus/Measure) — simulator-agnostic extension point; Android can implement its own later.
+
+### Changed
+
+- Orchestrator core extraction: `internal/core` replaced by public `pkg/orchestrator` (concrete `Orchestrator` struct, fallible functional options, loud duplicate-registration errors). `Platform` gains a required `Capabilities() CapabilitySet` for capability discovery. Lifecycle actions are now idempotent: `boot_device` on a running device succeeds (profile reconciliation runs, then returns current state), `stop_device` on a stopped device is a no-op success. `wipe_device` returns the device to its configured baseline (erase + re-apply slim profile when `on_boot` is set). `list_devices` degrades partially when one platform fails instead of erroring. Registration wiring unified in `internal/bootstrap.BuildOrchestrator`. MCP tool names and schemas unchanged.
+- Docs restructured for agent consumption: README reworked per the agentic readiness checklist (verbatim install command, prerequisites table with detection commands, MCP tool list, full config key/env var reference, copyable agent setup prompt, verifiable success criteria). `docs/architecture.md` is now a light user overview with a three-layer diagram and a minimal `pkg/orchestrator` embed example; design rationale moved to `.agents/docs/ARCHITECTURE.md` (unhosted). New `docs/agent-setup.md`: imperative setup spec (install, prerequisite detection, transport choice, config, verification, fallbacks).
 
 <!--
 ## [X.Y.Z] - YYYY-MM-DD

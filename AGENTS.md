@@ -15,6 +15,14 @@ We use a [GitHub project](https://github.com/users/espetro/projects/20) as proje
 
 Issues #1–#21 cover M1 milestone tasks. M2 hardening tracked separately.
 
+## Memory (cross-session recall)
+
+Read `.agents/MEMORY.md` before deep work: it defines this repo's memory
+layout and compaction ("dreaming") policy. Skim `.agents/notes/` (newest
+first) for findings touching your task, and write durable discoveries back
+as dated notes there. `.agents/drafts/` and `.agents/plans/` are gitignored
+scratch; `.agents/notes/` and `.agents/docs/` are committed.
+
 ## Current release
 
 v0.2.0 — cross-platform support (Windows/Linux), native service install, hosted doc site. Branch `main` holds released commits. Use `develop` for
@@ -32,6 +40,7 @@ build time via `-ldflags "-X .../internal/version.Version=..."`.
 | `CONTRIBUTING.md` | PR process + load-bearing separation rule |
 | `pkg/contract/platform.go` | Platform interface |
 | `pkg/contract/controller.go` | Controller interface |
+| `.agents/docs/ARCHITECTURE.md` | Contributor decision record for the Orchestrator Core (see also docs/ split rule in `.agents/MEMORY.md` log) |
 
 ## Agent Workflow
 
@@ -53,6 +62,9 @@ build time via `-ldflags "-X .../internal/version.Version=..."`.
 - `release/vX.Y.Z`: release branches
 - `hotfix/vX.Y.Z`: emergency fixes from main
 
+Note: user docs live in `docs/` (hosted at espetro.github.io/mcp-sim, deployed from `main` only);
+contributor docs live in `.agents/docs/` (committed, never hosted). No mixing.
+
 ## Stack Summary
 
 - **Language**: Go 1.25+
@@ -70,7 +82,9 @@ pkg/mcp/                MCP server wiring (public)
 internal/config/        CLI > env > file > default resolution
 internal/log/           slog wrapper
 internal/http/          HTTP server with graceful shutdown
-internal/core/          Registry, lifecycle, tool handlers
+internal/core/          Deleted by the orchestrator-core extraction; see `.agents/docs/ARCHITECTURE.md`
+internal/bootstrap/     Unified wiring (BuildOrchestrator) for serve, mcp, service modes
+pkg/orchestrator/       Orchestrator, Registry, Options, wipe/profile policy (public)
 platforms/ios/          iOS Simulator adapter (xcrun simctl)
 platforms/android/      Android Emulator adapter (emulator + adb)
 controllers/agentdevice/ agent-device proxy adapter

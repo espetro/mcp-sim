@@ -7,19 +7,16 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"sort"
+	"path/filepath"
 	"syscall"
 
-	"github.com/espetro/mcp-sim/controllers/agentdevice"
+	"github.com/espetro/mcp-sim/internal/auth"
 	"github.com/espetro/mcp-sim/internal/bootstrap"
 	"github.com/espetro/mcp-sim/internal/config"
-	"github.com/espetro/mcp-sim/internal/core"
 	applog "github.com/espetro/mcp-sim/internal/log"
 	svc "github.com/espetro/mcp-sim/internal/service"
 	"github.com/espetro/mcp-sim/internal/version"
 	"github.com/espetro/mcp-sim/pkg/mcp"
-	"github.com/espetro/mcp-sim/platforms/android"
-	"github.com/espetro/mcp-sim/platforms/ios"
 
 	kservice "github.com/kardianos/service"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -31,6 +28,7 @@ const (
 	cmdServe   = "serve"
 	cmdMCP     = "mcp"
 	cmdService = "service"
+	cmdAuth    = "auth"
 	cmdVersion = "version"
 )
 
@@ -43,6 +41,7 @@ Commands:
   serve       Start the HTTP/SSE server (long-lived, default for service mode)
   mcp         Run over stdio (spawnable per agent session)
   service     Install/manage mcp-sim as a native OS service
+  auth        Print auth artifacts (client config snippet)
   version     Print version information
   help        Print this message
 
@@ -102,6 +101,22 @@ Flags (only meaningful with "install"):
   -h, --help        Show this help
 `
 
+const usageAuth = `mcp-sim auth — print auth artifacts
+
+Usage:
+  mcp-sim auth print-snippet [flags]
+
+Subcommands:
+  print-snippet  Print the client config snippet (mcpServers JSON with the
+                 bearer token) to stdout
+
+Flags:
+  -config, --config  Path to the snippet file (default
+                     ~/.config/mcp-sim/client-snippet.json, or $MCPSIM_CONFIG
+                     as its directory)
+  -h, --help        Show this help
+`
+
 func main() {
 	if err := run(os.Args[0], os.Args[1:], os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
@@ -126,6 +141,8 @@ func run(prog string, args []string, stdout io.Writer) error {
 		return runMCP(prog, args[1:], stdout)
 	case cmdService:
 		return runService(prog, args[1:], stdout)
+	case cmdAuth:
+		return runAuth(prog, args[1:], stdout)
 	case "-v", "--version":
 		return printVersion(stdout)
 	default:
@@ -151,6 +168,8 @@ func runServe(prog string, args []string, stdout io.Writer) error {
 	fs.SetOutput(stdout)
 	listenAddr := fs.String("listen", "", "Address to bind (overrides config)")
 	configPath := fs.String("config", "", "Path to YAML config file")
+	noAuth := fs.Bool("insecure-no-auth", false, "Disable bearer auth on /mcp (gated, see --insecure-no-auth-ack)")
+	noAuthAck := fs.Bool("insecure-no-auth-ack", false, "Acknowledge the risk of no auth on a non-loopback listen address")
 	fs.Usage = func() { fmt.Fprint(stdout, usageServe) }
 	// Re-prepend the program name so ContinueOnError prints "serve -h".
 	if err := fs.Parse(args); err != nil {
@@ -172,7 +191,13 @@ func runServe(prog string, args []string, stdout io.Writer) error {
 	_ = listenAddr
 	_ = configPath
 	// Dispatch to the existing handler.
-	return serveImpl(prog, *listenAddr, *configPath)
+	return serveImpl(prog, *listenAddr, *configPath, authFlags{noAuth: *noAuth, noAuthAck: *noAuthAck})
+}
+
+// authFlags carries the CLI-only insecure-no-auth flags applied after Load.
+type authFlags struct {
+	noAuth    bool
+	noAuthAck bool
 }
 
 // runMCP parses mcp-specific flags and starts the stdio server.
@@ -180,6 +205,8 @@ func runMCP(prog string, args []string, stdout io.Writer) error {
 	fs := flag.NewFlagSet(cmdMCP, flag.ContinueOnError)
 	fs.SetOutput(stdout)
 	configPath := fs.String("config", "", "Path to YAML config file")
+	fs.Bool("insecure-no-auth", false, "Ignored over stdio (stdio is always auth free)")
+	fs.Bool("insecure-no-auth-ack", false, "Ignored over stdio")
 	fs.Usage = func() { fmt.Fprint(stdout, usageMCP) }
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -210,6 +237,8 @@ func runService(prog string, args []string, stdout io.Writer) error {
 	fs.SetOutput(stdout)
 	listenAddr := fs.String("listen", "", "Address to bind (overrides config)")
 	configPath := fs.String("config", "", "Path to YAML config file")
+	noAuth := fs.Bool("insecure-no-auth", false, "Disable bearer auth (gated, see --insecure-no-auth-ack); carried to \"run\"")
+	noAuthAck := fs.Bool("insecure-no-auth-ack", false, "Acknowledge the risk of no auth on a non-loopback listen address; carried to \"run\"")
 	userService := fs.Bool("user", false, "Install as a per-user service (no root required; unsupported on Windows)")
 	fs.Usage = func() { fmt.Fprint(stdout, usageService) }
 	if err := fs.Parse(args[1:]); err != nil {
@@ -227,6 +256,12 @@ func runService(prog string, args []string, stdout io.Writer) error {
 	if *configPath != "" {
 		svcArgs = append(svcArgs, "--config", *configPath)
 	}
+	if *noAuth {
+		svcArgs = append(svcArgs, "--insecure-no-auth")
+	}
+	if *noAuthAck {
+		svcArgs = append(svcArgs, "--insecure-no-auth-ack")
+	}
 
 	svcConfig, err := svc.BuildConfig(svcArgs, *userService)
 	if err != nil {
@@ -239,6 +274,12 @@ func runService(prog string, args []string, stdout io.Writer) error {
 	}
 	if *listenAddr != "" {
 		cfg.Server.Listen = *listenAddr
+	}
+	if *noAuth {
+		if err := auth.CheckInsecureNoAuth(cfg.Server.Listen, auth.GateOptions{Ack: *noAuthAck}); err != nil {
+			return err
+		}
+		cfg.Server.Auth.Enabled = false
 	}
 
 	logger := applog.New(cfg.Server.LogLevel, cfg.Server.LogFormat)
@@ -273,6 +314,54 @@ func runService(prog string, args []string, stdout io.Writer) error {
 	}
 }
 
+// runAuth dispatches the auth subcommand.
+func runAuth(prog string, args []string, stdout io.Writer) error {
+	if len(args) == 0 || isHelpFlag(args[0]) || args[0] == cmdHelp {
+		fmt.Fprint(stdout, usageAuth)
+		return nil
+	}
+	switch args[0] {
+	case "print-snippet":
+		return runAuthPrintSnippet(prog, args[1:], stdout)
+	default:
+		fmt.Fprintf(os.Stderr, "%s: unknown auth subcommand %q\n\n", prog, args[0])
+		fmt.Fprint(stdout, usageAuth)
+		os.Exit(2)
+		return nil // unreachable
+	}
+}
+
+// runAuthPrintSnippet prints the client snippet to stdout so agents can
+// retrieve the auth config non interactively after first boot.
+func runAuthPrintSnippet(prog string, args []string, stdout io.Writer) error {
+	fs := flag.NewFlagSet("auth print-snippet", flag.ContinueOnError)
+	fs.SetOutput(stdout)
+	snippetPath := fs.String("config", "", "Path to the snippet file")
+	fs.Usage = func() { fmt.Fprint(stdout, usageAuth) }
+	if err := fs.Parse(args); err != nil {
+		if err == flag.ErrHelp {
+			return nil
+		}
+		fmt.Fprint(stdout, usageAuth)
+		return err
+	}
+	path := *snippetPath
+	if path == "" {
+		path = bootstrap.DefaultSnippetPath()
+		// Support $MCPSIM_CONFIG style override: use its directory.
+		if cfgPath := os.Getenv("MCPSIM_CONFIG"); cfgPath != "" {
+			path = filepath.Join(filepath.Dir(cfgPath), "client-snippet.json")
+		}
+	}
+	// #nosec G703 -- path comes from operator-supplied CLI flag or env, same trust level as config.Load
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("reading snippet %s (run serve once to generate it): %w", path, err)
+	}
+	_, err = stdout.Write(data)
+	return err
+}
+
 func serviceStatusString(status kservice.Status) string {
 	switch status {
 	case kservice.StatusRunning:
@@ -286,7 +375,7 @@ func serviceStatusString(status kservice.Status) string {
 
 // serveImpl and mcpImpl are the actual implementation of each subcommand.
 // Extracted so run() stays small and command flags parse first.
-func serveImpl(prog, listenAddr, configPath string) error {
+func serveImpl(prog, listenAddr, configPath string, flags authFlags) error {
 	_ = configPath // TODO: pass through to config.Load; env override preserved
 	cfg, err := config.Load()
 	if err != nil {
@@ -295,20 +384,24 @@ func serveImpl(prog, listenAddr, configPath string) error {
 	if listenAddr != "" {
 		cfg.Server.Listen = listenAddr
 	}
+	if flags.noAuth {
+		if err := auth.CheckInsecureNoAuth(cfg.Server.Listen, auth.GateOptions{Ack: flags.noAuthAck}); err != nil {
+			return err
+		}
+		cfg.Server.Auth.Enabled = false
+	}
 
 	logger := applog.New(cfg.Server.LogLevel, cfg.Server.LogFormat)
 	ctx := applog.WithContext(context.Background(), logger)
 
-	registry, httpServer, err := bootstrap.BuildHTTPServer(ctx, cfg, logger)
+	orch, httpServer, err := bootstrap.BuildHTTPServer(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
 
 	logger.Info("mcp-sim starting",
 		"version", version.Version,
-		"addr", cfg.Server.Listen,
-		"platforms", platformNames(registry),
-		"controllers", controllerNames(registry))
+		"addr", cfg.Server.Listen)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -316,7 +409,7 @@ func serveImpl(prog, listenAddr, configPath string) error {
 	go func() {
 		<-ctx.Done()
 		logger.Info("shutdown signal received")
-		registry.ShutdownAll()
+		_ = orch.ShutdownAll(ctx)
 	}()
 
 	if err := httpServer.ListenAndServe(ctx); err != nil {
@@ -331,50 +424,21 @@ func mcpImpl(prog, configPath string) error {
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
+	// stdio is spawned by the agent itself and is auth free by design:
+	// warn (do not error) if auth settings are present so agent UX stays smooth.
+	if !cfg.Server.Auth.Enabled || cfg.Server.Auth.Token != "" || os.Getenv("MCPSIM_AUTH_TOKEN") != "" {
+		logger := applog.New(cfg.Server.LogLevel, cfg.Server.LogFormat)
+		logger.Warn("stdio transport is auth free; auth config ignored (use serve/service for bearer auth)")
+	}
 
 	logger := applog.New(cfg.Server.LogLevel, cfg.Server.LogFormat)
 	ctx := applog.WithContext(context.Background(), logger)
 
-	registry := core.NewRegistry(logger)
-	lifecycle := core.NewLifecycle(registry)
-
-	if cfg.Platforms.IOS.Enabled {
-		iosPlatform, _ := ios.New(ctx, cfg.Platforms.IOS)
-		if iosPlatform != nil {
-			registry.RegisterPlatform(iosPlatform)
-		}
-	}
-	if cfg.Platforms.Android.Enabled {
-		androidPlatform, _ := android.New(cfg.Platforms.Android)
-		if androidPlatform != nil {
-			registry.RegisterPlatform(androidPlatform)
-		}
-	}
-	if cfg.Controllers.AgentDevice.Enabled {
-		registry.RegisterController(agentdevice.New(cfg.Controllers.AgentDevice))
+	orch, err := bootstrap.BuildOrchestrator(ctx, cfg, logger)
+	if err != nil {
+		return err
 	}
 
-	mcpServer := mcp.NewServer(registry, lifecycle, logger)
+	mcpServer := mcp.NewServer(orch, logger)
 	return mcpServer.Run(ctx, &sdkmcp.StdioTransport{})
-}
-
-// platformNames returns a sorted list of registered platform names.
-func platformNames(r *core.Registry) []string {
-	ps := r.AllPlatforms()
-	names := make([]string, 0, len(ps))
-	for name := range ps {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
-}
-
-func controllerNames(r *core.Registry) []string {
-	cs := r.AllControllers()
-	names := make([]string, 0, len(cs))
-	for name := range cs {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
 }

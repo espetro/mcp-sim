@@ -8,7 +8,7 @@
 package version
 
 // Version is the semantic version of mcp-sim (e.g. "0.2.0").
-var Version = "0.2.0"
+var Version = "0.3.0"
 
 // Commit is the git commit SHA the binary was built from.
 var Commit = "none"
