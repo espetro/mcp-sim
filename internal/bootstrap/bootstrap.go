@@ -16,6 +16,7 @@ import (
 	"github.com/espetro/mcp-sim/internal/auth"
 	"github.com/espetro/mcp-sim/internal/config"
 	srv "github.com/espetro/mcp-sim/internal/http"
+	"github.com/espetro/mcp-sim/internal/paths"
 	"github.com/espetro/mcp-sim/pkg/mcp"
 	"github.com/espetro/mcp-sim/pkg/orchestrator"
 	"github.com/espetro/mcp-sim/platforms/android"
@@ -159,20 +160,20 @@ func resolveToken(cfg config.Config, logger *slog.Logger) (string, error) {
 
 // DefaultTokenPath is where the generated bearer token persists.
 func DefaultTokenPath() string {
-	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
+	dir, err := paths.Dir()
+	if err != nil {
 		return "token"
 	}
-	return filepath.Join(home, ".config", "mcp-sim", "token")
+	return filepath.Join(dir, "token")
 }
 
 // DefaultSnippetPath is where the ready-to-paste client snippet is written.
 func DefaultSnippetPath() string {
-	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
+	dir, err := paths.Dir()
+	if err != nil {
 		return "client-snippet.json"
 	}
-	return filepath.Join(home, ".config", "mcp-sim", "client-snippet.json")
+	return filepath.Join(dir, "client-snippet.json")
 }
 
 // isTerminal reports whether f is an interactive character device.

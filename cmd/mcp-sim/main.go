@@ -55,7 +55,7 @@ Usage:
 
 Flags:
   -listen, --listen  Address to bind (default ":9090" or $MCPSIM_LISTEN)
-  -config, --config  Path to YAML config file (default $MCPSIM_CONFIG or ~/.config/mcp-sim/config.yaml)
+  -config, --config  Path to YAML config file (default $MCPSIM_CONFIG or ~/.config/mcp-sim/config.yaml; Windows: %AppData%\\mcp-sim\\config.yaml)
   -h, --help        Show this help
 
 Endpoints when running:
@@ -69,7 +69,7 @@ Usage:
   mcp-sim mcp [flags]
 
 Flags:
-  -config, --config  Path to YAML config file (default $MCPSIM_CONFIG or ~/.config/mcp-sim/config.yaml)
+  -config, --config  Path to YAML config file (default $MCPSIM_CONFIG or ~/.config/mcp-sim/config.yaml; Windows: %AppData%\\mcp-sim\\config.yaml)
   -h, --help        Show this help
 
 Reads JSON-RPC from stdin, writes to stdout.
@@ -112,7 +112,8 @@ Subcommands:
 
 Flags:
   -config, --config  Path to the snippet file (default
-                     ~/.config/mcp-sim/client-snippet.json, or $MCPSIM_CONFIG
+                     ~/.config/mcp-sim/client-snippet.json (Windows:
+                     %AppData%\mcp-sim\client-snippet.json), or $MCPSIM_CONFIG
                      as its directory)
   -h, --help        Show this help
 `

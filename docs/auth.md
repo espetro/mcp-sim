@@ -39,7 +39,9 @@ The chosen source is logged at startup (never the raw token).
 When neither env nor config provides a token, the server generates one: 32
 bytes from `crypto/rand`, base64url encoded. On first boot it:
 
-- Saves the token to `~/.config/mcp-sim/token` with `0600` permissions.
+- Saves the token to `~/.config/mcp-sim/token` with `0600` permissions. On
+  Windows the directory is `%AppData%\mcp-sim` instead (resolved via
+  `os.UserConfigDir`).
 - Writes a ready-to-paste client config next to it,
   `~/.config/mcp-sim/client-snippet.json` (also `0600`, it embeds the token).
 - Logs the file paths only, never the token itself, in non-interactive

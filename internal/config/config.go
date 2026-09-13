@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/espetro/mcp-sim/internal/paths"
 )
 
 // Config holds all mcp-sim configuration.
@@ -152,9 +154,8 @@ func Load() (Config, error) {
 		if err := loadFile(path, &cfg); err != nil {
 			return Config{}, fmt.Errorf("loading config from %s: %w", path, err)
 		}
-	} else if home, err := os.UserHomeDir(); err == nil && home != "" {
-		defaultPath := filepath.Join(home, ".config", "mcp-sim", "config.yaml")
-		_ = loadFile(defaultPath, &cfg) // ignore error if missing
+	} else if dir, err := paths.Dir(); err == nil {
+		_ = loadFile(filepath.Join(dir, "config.yaml"), &cfg) // ignore error if missing
 	}
 
 	// Env var overrides (highest priority).
