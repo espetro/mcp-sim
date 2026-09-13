@@ -28,10 +28,10 @@ builds:
 
 archives:
   - id: default
-    format: zip
+    formats: ["zip"]
     format_overrides:
       - goos: linux
-        format: tar.gz
+        formats: ["tar.gz"]
     files:
       - LICENSE
 
@@ -47,18 +47,21 @@ release:
 project_name: mcp-sim
 
 # Homebrew tap (requires TAP_GITHUB_TOKEN secret with repo scope on espetro/homebrew-mcp-sim)
-brews:
+homebrew_casks:
   - name: mcp-sim
     repository:
       owner: espetro
       name: homebrew-mcp-sim
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     commit_msg_template: 'ci: bump mcp-sim to {{ .Version }}'
-    directory: Formula
-    test: |
-      system "#{bin}/mcp-sim version"
-    install: |
-      bin.install "mcp-sim"
+    binaries:
+      - mcp-sim
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/mcp-sim"]
+          end
     service: |
       run [opt_bin/"mcp-sim", "serve", "--listen", ":9090"]
       keep_alive true
