@@ -209,6 +209,9 @@ func NewServer(orch *orchestrator.Orchestrator, logger *slog.Logger) *Server {
 		}{PID: pid}, err
 	})
 
+	// verifier tools (device interaction via the configured Verifier backend)
+	registerVerifierTools(s, orch)
+
 	// start_controller
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "start_controller",

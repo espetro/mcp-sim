@@ -237,6 +237,11 @@ func TestStreamableHTTPAuthFlow(t *testing.T) {
 		"await_ready", "boot_device", "controller_status", "get_state",
 		"install_app", "launch_app", "list_devices", "open_url", "start_controller", "stop_controller",
 		"stop_device", "stream_info", "wipe_device",
+		// verifier tools (advertised even without a backend; calls return
+		// a structured verifier_unavailable error)
+		"verifier_double_tap", "verifier_long_press", "verifier_open_url",
+		"verifier_press_button", "verifier_screenshot", "verifier_snapshot",
+		"verifier_swipe", "verifier_tap", "verifier_type",
 	}
 	if len(tools) != len(wantTools) {
 		t.Errorf("tools/list returned %d tools, want %d", len(tools), len(wantTools))
