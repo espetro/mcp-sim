@@ -36,9 +36,20 @@ Each platform is auto-detected at startup. A missing tool means that platform's 
 | `get_state` | Get device state (includes an `optimizer` block when slimming is active) |
 | `await_ready` | Wait for device to finish booting |
 | `open_url` | Open a deep link on a device |
+| `install_app` | Install an app artifact ([`artifact_ref` forms](docs/install.md); requires `MCPSIM_ARTIFACT_ROOTS` for relative/artifact:// refs) |
+| `launch_app` | Launch an installed app by bundle id, returns pid |
 | `start_controller` | Start a controller proxy daemon |
-| `stop_controller` | Stop a controller proxy daemon |
-| `controller_status` | Check controller proxy status |
+
+## What mcp-sim is NOT
+
+mcp-sim stays deliberately narrow: device lifecycle plus install and launch.
+
+- **No build tool.** `xcodebuild`, `gradle`, `eas build` live elsewhere (XcodeBuildMCP, DroidPilot, your CI step).
+- **No transfer tool.** No scp/rsync/curl helpers; the runner already has those.
+- **No artifact orchestration.** No version resolution, no EAS/Bitrise API integration, no remote (HTTP/s3) artifact fetching. Callers produce a local path and pass it in.
+- **No uninstall (yet).** Deferred until a concrete CI need shows up.
+
+See [docs/install.md](docs/install.md) for the install/launch surface.
 
 ## Config keys and env vars
 
@@ -52,6 +63,7 @@ Precedence: CLI flags > env vars > YAML (`~/.config/mcp-sim/config.yaml`, or `$M
 | `MCPSIM_CONFIG` | (n/a) | path to config file |
 | `MCPSIM_AUTH_TOKEN` | `server.auth.token` | bearer token for `/mcp` (HTTP); see [docs/auth.md](docs/auth.md) |
 | `MCPSIM_INSECURE_NO_AUTH` | `server.auth.enabled` (inverted) | disable bearer auth (gated on non-loopback listeners) |
+| `MCPSIM_ARTIFACT_ROOTS` | (n/a) | colon-separated artifact roots for `install_app` (`name=path` for `artifact://` refs); see [docs/install.md](docs/install.md) |
 | `MCPSIM_TRUSTED_NETWORK` | (n/a) | set `true` to acknowledge a trusted network and satisfy the insecure-no-auth gate |
 | `MCPSIM_IOS_ENABLED` | `platforms.ios.enabled` | force iOS adapter on/off |
 | `MCPSIM_DEVELOPER_DIR` | `platforms.ios.developer_dir` | xcode-select developer dir |
