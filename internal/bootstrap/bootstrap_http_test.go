@@ -51,7 +51,7 @@ func (fakePlatform) OpenURL(context.Context, string, string) error { return nil 
 
 func (fakePlatform) InstallApp(_ context.Context, target, artifactPath string) error {
 	if artifactPath != installedArtifact {
-		return errFakeInstall{artifactPath}
+		return fakeInstallError{artifactPath}
 	}
 	return nil
 }
@@ -68,9 +68,9 @@ func (fakePlatform) Capabilities() contract.CapabilitySet {
 // point MCPSIM_ARTIFACT_ROOTS at a temp dir holding it.
 var installedArtifact string
 
-type errFakeInstall struct{ got string }
+type fakeInstallError struct{ got string }
 
-func (e errFakeInstall) Error() string { return "fake install got unexpected artifact " + e.got }
+func (e fakeInstallError) Error() string { return "fake install got unexpected artifact " + e.got }
 
 // hermeticConfig returns a Config with every platform and controller
 // disabled: BuildOrchestrator probes no binaries. Listen is ":0"; the
@@ -268,7 +268,7 @@ func TestStreamableHTTPAuthFlow(t *testing.T) {
 // platform.
 func TestInstallLaunchTools(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "app.apk"), []byte("apk"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "app.apk"), []byte("apk"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("MCPSIM_ARTIFACT_ROOTS", dir+":named="+dir)
@@ -285,7 +285,7 @@ func TestInstallLaunchTools(t *testing.T) {
 		"capabilities":    map[string]any{},
 		"clientInfo":      map[string]any{"name": "test", "version": "0"},
 	}))
-	defer initResp.Body.Close()
+	defer func() { _ = initResp.Body.Close() }()
 	sessionID := initResp.Header.Get("Mcp-Session-Id")
 	notif := jsonRPCRequest(t, ts.URL+"/mcp", sessionID, "notifications/initialized", nil)
 	if resp, err := client.Do(notif); err != nil {

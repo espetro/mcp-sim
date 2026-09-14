@@ -29,7 +29,7 @@ func TestLoadRoots(t *testing.T) {
 func TestResolve(t *testing.T) {
 	dir := t.TempDir()
 	nested := filepath.Join(dir, "build", "MyApp.app")
-	if err := os.MkdirAll(nested, 0o755); err != nil {
+	if err := os.MkdirAll(nested, 0o750); err != nil {
 		t.Fatal(err)
 	}
 	roots := LoadRoots(dir + ":named=" + dir)
