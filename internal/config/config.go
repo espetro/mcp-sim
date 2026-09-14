@@ -14,9 +14,24 @@ import (
 
 // Config holds all mcp-sim configuration.
 type Config struct {
-	Server      ServerConfig      `yaml:"server"`
-	Platforms   PlatformsConfig   `yaml:"platforms"`
-	Controllers ControllersConfig `yaml:"controllers"`
+	Server        ServerConfig        `yaml:"server"`
+	Platforms     PlatformsConfig     `yaml:"platforms"`
+	Controllers   ControllersConfig   `yaml:"controllers"`
+	Observability ObservabilityConfig `yaml:"observability"`
+}
+
+// ObservabilityConfig configures OTel tracing and the JSONL audit log.
+type ObservabilityConfig struct {
+	// Enabled turns on the OTel tracer provider; when false no spans are
+	// recorded and the audit log is never written (zero overhead).
+	Enabled bool `yaml:"enabled"` // MCPSIM_OBSERVABILITY_ENABLED
+	// AuditPath is where spans are written as JSONL: "stdout", "file" (the
+	// default ~/.config/mcp-sim/audit.jsonl) or an explicit path.
+	AuditPath string `yaml:"audit_path"` // MCPSIM_AUDIT_LOG
+	// OTLPEndpoint reserves an OTLP/HTTP exporter endpoint. Not exported in
+	// v1 (the JSONL audit log is the only sink); the key is accepted so CI
+	// configs can pin it ahead of support.
+	OTLPEndpoint string `yaml:"otlp_endpoint"` // MCPSIM_OTLP_ENDPOINT
 }
 
 // ServerConfig configures the HTTP server.
@@ -126,6 +141,10 @@ func defaultConfig() Config {
 			Auth: AuthConfig{
 				Enabled: true,
 			},
+		},
+		Observability: ObservabilityConfig{
+			Enabled:   false,
+			AuditPath: "file",
 		},
 		Platforms: PlatformsConfig{
 			IOS: IOSConfig{
@@ -260,6 +279,16 @@ func Load() (Config, error) {
 	}
 	if v := os.Getenv("MCPSIM_AGENT_DEVICE_BIN"); v != "" {
 		cfg.Controllers.AgentDevice.BinPath = v
+	}
+
+	if v := os.Getenv("MCPSIM_OBSERVABILITY_ENABLED"); v != "" {
+		cfg.Observability.Enabled, _ = strconv.ParseBool(v)
+	}
+	if v := os.Getenv("MCPSIM_AUDIT_LOG"); v != "" {
+		cfg.Observability.AuditPath = v
+	}
+	if v := os.Getenv("MCPSIM_OTLP_ENDPOINT"); v != "" {
+		cfg.Observability.OTLPEndpoint = v
 	}
 
 	if err := cfg.Platforms.Android.Validate(); err != nil {
