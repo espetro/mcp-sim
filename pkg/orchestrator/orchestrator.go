@@ -39,6 +39,7 @@ type Orchestrator struct {
 	mu          sync.RWMutex
 	platforms   map[string]contract.Platform
 	controllers map[string]contract.Controller
+	verifier    contract.Verifier
 	logger      *slog.Logger
 	reconcile   bool
 }
@@ -48,6 +49,7 @@ type settings struct {
 	logger      *slog.Logger
 	platforms   map[string]contract.Platform
 	controllers map[string]contract.Controller
+	verifier    contract.Verifier
 	reconcile   bool
 }
 
@@ -124,6 +126,7 @@ func New(opts ...Option) (*Orchestrator, error) {
 	return &Orchestrator{
 		platforms:   s.platforms,
 		controllers: s.controllers,
+		verifier:    s.verifier,
 		logger:      s.logger,
 		reconcile:   s.reconcile,
 	}, nil

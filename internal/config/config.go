@@ -108,6 +108,12 @@ type ControllersConfig struct {
 type AgentDeviceConfig struct {
 	Enabled   bool `yaml:"enabled"`    // MCPSIM_AGENT_DEVICE_ENABLED
 	ProxyPort int  `yaml:"proxy_port"` // MCPSIM_AGENT_DEVICE_PORT
+	// Verifier enables the device-interaction backend (verifier_* MCP tools)
+	// backed by `agent-device mcp`. Buy-in: when unset it defaults to true
+	// only if the agent-device binary is found on PATH.
+	Verifier *bool `yaml:"verifier"` // MCPSIM_AGENT_DEVICE_VERIFIER
+	// BinPath overrides the agent-device binary location (default: $PATH lookup).
+	BinPath string `yaml:"bin_path"` // MCPSIM_AGENT_DEVICE_BIN
 }
 
 // Built-in defaults.
@@ -245,6 +251,15 @@ func Load() (Config, error) {
 		if port, err := strconv.Atoi(v); err == nil {
 			cfg.Controllers.AgentDevice.ProxyPort = port
 		}
+	}
+
+	if v := os.Getenv("MCPSIM_AGENT_DEVICE_VERIFIER"); v != "" {
+		if enabled, err := strconv.ParseBool(v); err == nil {
+			cfg.Controllers.AgentDevice.Verifier = &enabled
+		}
+	}
+	if v := os.Getenv("MCPSIM_AGENT_DEVICE_BIN"); v != "" {
+		cfg.Controllers.AgentDevice.BinPath = v
 	}
 
 	if err := cfg.Platforms.Android.Validate(); err != nil {

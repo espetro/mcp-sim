@@ -58,5 +58,6 @@ const (
 	ErrTimeout               = "timeout"
 	ErrUnsupportedPlatform   = "unsupported_platform"
 	ErrUnsupportedController = "unsupported_controller"
+	ErrVerifierUnavailable   = "verifier_unavailable"
 	ErrInternal              = "internal"
 )

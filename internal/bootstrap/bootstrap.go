@@ -64,6 +64,14 @@ func BuildOrchestrator(ctx context.Context, cfg config.Config, logger *slog.Logg
 		opts = append(opts, orchestrator.WithController(c))
 		controllerNames = append(controllerNames, c.Name())
 	}
+	verifier, err := MaybeVerifier(ctx, cfg, logger)
+	if err != nil {
+		return nil, err
+	}
+	if verifier != nil {
+		opts = append(opts, orchestrator.WithVerifier(verifier))
+		logger.Info("verifier ready", "backend", verifier.Name())
+	}
 
 	orch, err := orchestrator.New(opts...)
 	if err != nil {
