@@ -46,10 +46,11 @@ func New(ctx context.Context, cfg config.IOSConfig) (*Platform, error) {
 // Name returns "ios".
 func (p *Platform) Name() string { return "ios" }
 
-// Capabilities reports the supported operations: all lifecycle caps, plus
-// optimize/measure when a slimmer is configured (i.e. Optimizer is implemented).
+// Capabilities reports the supported operations: all lifecycle caps plus
+// install/launch, plus optimize/measure when a slimmer is configured (i.e.
+// Optimizer is implemented).
 func (p *Platform) Capabilities() contract.CapabilitySet {
-	s := contract.CapAll
+	s := contract.CapabilitiesFor(p)
 	if p.slim != nil {
 		s = s.Enable(contract.CapOptimize).Enable(contract.CapMeasure)
 	}

@@ -18,6 +18,8 @@ const (
 	CapAwaitReady                        // AwaitReady
 	CapWipe                              // Wipe
 	CapOpenURL                           // OpenURL
+	CapInstall                           // InstallApp (requires AppInstaller)
+	CapLaunch                            // LaunchApp (requires AppLauncher)
 	CapOptimize                          // Optimize/Restore/OptimizeStatus (requires Optimizer)
 	CapMeasure                           // Measure (requires Optimizer)
 
@@ -47,6 +49,8 @@ var capNames = []struct {
 	{CapAwaitReady, "await_ready"},
 	{CapWipe, "wipe"},
 	{CapOpenURL, "open_url"},
+	{CapInstall, "install_app"},
+	{CapLaunch, "launch_app"},
 	{CapOptimize, "optimize"},
 	{CapMeasure, "measure"},
 }
@@ -66,11 +70,18 @@ func (s CapabilitySet) String() string {
 }
 
 // CapabilitiesFor derives the capability set for a Platform: base lifecycle
-// caps plus CapOptimize/CapMeasure when p also implements Optimizer.
+// caps plus CapOptimize/CapMeasure when p also implements Optimizer, and
+// CapInstall/CapLaunch when p implements AppInstaller/AppLauncher.
 func CapabilitiesFor(p Platform) CapabilitySet {
 	s := CapAll
 	if _, ok := p.(Optimizer); ok {
 		s |= CapabilitySet(CapOptimize) | CapabilitySet(CapMeasure)
+	}
+	if _, ok := p.(AppInstaller); ok {
+		s |= CapabilitySet(CapInstall)
+	}
+	if _, ok := p.(AppLauncher); ok {
+		s |= CapabilitySet(CapLaunch)
 	}
 	return s
 }

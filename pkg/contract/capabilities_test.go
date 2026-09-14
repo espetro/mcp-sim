@@ -88,3 +88,22 @@ func TestAs(t *testing.T) {
 		t.Log("note: As[concrete] does not see through embedding of different type")
 	}
 }
+
+func TestCapabilitiesForInstallLaunch(t *testing.T) {
+	inst := instPlatform{barePlatform{}}
+	s := CapabilitiesFor(inst)
+	if !s.Has(CapInstall) || !s.Has(CapLaunch) {
+		t.Fatalf("CapabilitiesFor(AppInstaller+AppLauncher impl) missing install/launch: %v", s)
+	}
+	s2 := CapabilitiesFor(barePlatform{})
+	if s2.Has(CapInstall) || s2.Has(CapLaunch) {
+		t.Fatalf("CapabilitiesFor(plain platform) should lack install/launch: %v", s2)
+	}
+}
+
+type instPlatform struct{ barePlatform }
+
+func (instPlatform) InstallApp(ctx context.Context, target, path string) error { return nil }
+func (instPlatform) LaunchApp(ctx context.Context, target, bundleID string) (int, error) {
+	return 0, nil
+}
