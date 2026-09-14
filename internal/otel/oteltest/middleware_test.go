@@ -223,3 +223,43 @@ func TestTraceparentPropagation(t *testing.T) {
 		t.Errorf("parent_span_id = %v, want %s", span["parent_span_id"], spanID)
 	}
 }
+
+// TestToolErrorResultOutcome covers tools that fail via an MCP tool error:
+// the go-sdk converts a handler error into a CallToolResult with IsError=true
+// and nil Go error, so the middleware must still record outcome=error.
+func TestToolErrorResultOutcome(t *testing.T) {
+	mcpURL, auditPath := startAuditedServer(t)
+
+	sessionID, _ := rpc(t, mcpURL, "", "initialize", map[string]any{
+		"protocolVersion": "2025-03-26",
+		"capabilities":    map[string]any{},
+		"clientInfo":      map[string]any{"name": "otel-test", "version": "0"},
+	})
+	rpc(t, mcpURL, sessionID, "notifications/initialized", nil)
+	// launch_app against a nonexistent platform fails in the orchestrator;
+	// the SDK serializes that as isError=true, err=nil.
+	_, _ = rpc(t, mcpURL, sessionID, "tools/call", map[string]any{
+		"name": "launch_app",
+		"arguments": map[string]any{
+			"platform":  "nonexistent",
+			"target":    "nope",
+			"bundle_id": "com.example.app",
+		},
+	})
+
+	span := findSpan(auditLines(t, auditPath), "mcp_sim.launch_app")
+	if span == nil {
+		t.Fatal("no mcp_sim.launch_app span in audit log")
+	}
+	attrs := span["attributes"].(map[string]any)
+	if attrs["audit.outcome"] != "error" {
+		t.Errorf("audit.outcome = %v, want error", attrs["audit.outcome"])
+	}
+	code, _ := attrs["audit.error_code"].(string)
+	if code == "" {
+		t.Error("audit.error_code missing for isError result")
+	}
+	if status, ok := span["status"].(string); !ok || status != "error: "+code {
+		t.Errorf("span status = %v, want error: %s", span["status"], code)
+	}
+}

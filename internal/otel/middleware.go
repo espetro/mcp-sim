@@ -102,12 +102,68 @@ func MCPMiddleware() func(sdkmcpMethodHandler) sdkmcpMethodHandler {
 					attribute.String("audit.error_code", err.Error()),
 				)
 				span.SetStatus(codes.Error, err.Error())
+			} else if code, isErr := toolErrorOutcome(res); isErr {
+				// Tool handlers report failures as a CallToolResult with
+				// IsError=true (Go err == nil), so the result must be
+				// inspected too.
+				span.SetAttributes(
+					attribute.String("audit.outcome", "error"),
+					attribute.String("audit.error_code", code),
+				)
+				span.SetStatus(codes.Error, code)
 			} else {
 				span.SetAttributes(attribute.String("audit.outcome", "ok"))
 			}
 			return res, err
 		}
 	}
+}
+
+// toolErrorOutcome reports whether a successful middleware return carries an
+// MCP tool error (CallToolResult.IsError=true, Go err == nil) and extracts the
+// first text content as the error code (truncated). Falls back to a JSON
+// round-trip for results that don't expose IsError directly.
+func toolErrorOutcome(res mcpResult) (string, bool) {
+	if res == nil {
+		return "", false
+	}
+	if ctr, ok := res.(*sdkmcp.CallToolResult); ok {
+		return callToolErrorText(ctr), ctr.IsError
+	}
+	// Fallback: inspect the wire shape for isError.
+	raw, err := json.Marshal(res)
+	if err != nil {
+		return "", false
+	}
+	var wire struct {
+		IsError bool             `json:"isError"`
+		Content []struct {
+			Text string `json:"text"`
+		} `json:"content"`
+	}
+	if json.Unmarshal(raw, &wire) != nil || !wire.IsError {
+		return "", false
+	}
+	return truncate(wire.Content[0].Text), true
+}
+
+// callToolErrorText returns the first text content of an errored result,
+// truncated, or "tool_error" if none is available.
+func callToolErrorText(ctr *sdkmcp.CallToolResult) string {
+	for _, c := range ctr.Content {
+		if tc, ok := c.(*sdkmcp.TextContent); ok && tc.Text != "" {
+			return truncate(tc.Text)
+		}
+	}
+	return "tool_error"
+}
+
+func truncate(s string) string {
+	const max = 200
+	if len(s) > max {
+		return s[:max]
+	}
+	return s
 }
 
 // toolCallInfo extracts the tool name and raw arguments from a tools/call
