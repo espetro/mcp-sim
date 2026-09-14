@@ -14,6 +14,7 @@ import (
 	"github.com/espetro/mcp-sim/internal/bootstrap"
 	"github.com/espetro/mcp-sim/internal/config"
 	applog "github.com/espetro/mcp-sim/internal/log"
+	"github.com/espetro/mcp-sim/internal/otel"
 	svc "github.com/espetro/mcp-sim/internal/service"
 	"github.com/espetro/mcp-sim/internal/version"
 	"github.com/espetro/mcp-sim/pkg/mcp"
@@ -394,6 +395,14 @@ func serveImpl(prog, listenAddr, configPath string, flags authFlags) error {
 	logger := applog.New(cfg.Server.LogLevel, cfg.Server.LogFormat)
 	ctx := applog.WithContext(context.Background(), logger)
 
+	shutdownTracing, err := otel.InitTracer(cfg.Observability.Enabled, cfg.Observability.AuditPath)
+	if err != nil {
+		return err
+	}
+	if shutdownTracing != nil {
+		defer func() { _ = shutdownTracing(context.Background()) }()
+	}
+
 	orch, httpServer, err := bootstrap.BuildHTTPServer(ctx, cfg, logger)
 	if err != nil {
 		return err
@@ -433,6 +442,14 @@ func mcpImpl(prog, configPath string) error {
 
 	logger := applog.New(cfg.Server.LogLevel, cfg.Server.LogFormat)
 	ctx := applog.WithContext(context.Background(), logger)
+
+	shutdownTracing, err := otel.InitTracer(cfg.Observability.Enabled, cfg.Observability.AuditPath)
+	if err != nil {
+		return err
+	}
+	if shutdownTracing != nil {
+		defer func() { _ = shutdownTracing(context.Background()) }()
+	}
 
 	orch, err := bootstrap.BuildOrchestrator(ctx, cfg, logger)
 	if err != nil {

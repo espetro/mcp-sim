@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/espetro/mcp-sim/internal/artifact"
+	"github.com/espetro/mcp-sim/internal/otel"
 	"github.com/espetro/mcp-sim/internal/version"
 	"github.com/espetro/mcp-sim/pkg/contract"
 	"github.com/espetro/mcp-sim/pkg/orchestrator"
@@ -35,6 +36,9 @@ func NewServer(orch *orchestrator.Orchestrator, logger *slog.Logger) *Server {
 	}, &mcp.ServerOptions{
 		Instructions: "Mobile emulator/simulator control server.",
 	})
+	// One receiving middleware covers every current and future tool: each
+	// tools/call gets a mcp_sim.<tool> span with the audit attribute set.
+	s.AddReceivingMiddleware(otel.MCPMiddleware())
 
 	// list_devices
 	mcp.AddTool(s, &mcp.Tool{
@@ -315,6 +319,16 @@ type GetStateOptimizerBlock struct {
 	ProcessCount       int    `json:"process_count,omitempty"`
 }
 
+// StreamableHTTPHandlerStateless is StreamableHTTPHandler in stateless mode:
+// each POST is handled against the request's own context, which is what the
+// tracing middleware needs for W3C traceparent propagation (stateful mode
+// detaches the request context after initialize).
+func (s *Server) StreamableHTTPHandlerStateless() http.Handler {
+	return otel.WithTracing(mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
+		return s.impl
+	}, &mcp.StreamableHTTPOptions{Stateless: true}))
+}
+
 // Run runs the server over the given transport (e.g. stdio).
 func (s *Server) Run(ctx context.Context, t mcp.Transport) error {
 	return s.impl.Run(ctx, t)
@@ -322,7 +336,7 @@ func (s *Server) Run(ctx context.Context, t mcp.Transport) error {
 
 // StreamableHTTPHandler returns an HTTP handler for the streamable MCP transport.
 func (s *Server) StreamableHTTPHandler() http.Handler {
-	return mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
+	return otel.WithTracing(mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
 		return s.impl
-	}, nil)
+	}, nil))
 }
