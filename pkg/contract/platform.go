@@ -46,6 +46,22 @@ type Optimizer interface {
 	Measure(ctx context.Context, target string) (ResourceUsage, error)
 }
 
+// AppInstaller is an optional Platform extension that installs an app
+// artifact onto a device. iOS: `simctl install`; Android: `adb install -r`.
+type AppInstaller interface {
+	// InstallApp installs an app artifact (bundle path or APK) on the device.
+	InstallApp(ctx context.Context, target, artifactPath string) error
+}
+
+// AppLauncher is an optional Platform extension that launches an installed
+// app by bundle identifier. iOS: `simctl launch` (returns pid); Android:
+// `am start` after resolving the launch activity.
+type AppLauncher interface {
+	// LaunchApp starts the app and returns its process id (0 when the
+	// platform cannot report one).
+	LaunchApp(ctx context.Context, target, bundleID string) (pid int, err error)
+}
+
 // OptimizeOpts controls how a device is optimized.
 type OptimizeOpts struct {
 	Profile  string   `json:"profile,omitempty"`   // Path to a profile JSON file; empty = default slim profile

@@ -378,8 +378,9 @@ func (p *Platform) OpenURL(ctx context.Context, target, url string) error {
 	return cmd.Run()
 }
 
-// Capabilities reports the supported operations: base lifecycle caps only —
-// the Android adapter does not implement Optimizer.
+// Capabilities reports the supported operations: base lifecycle caps plus
+// install/launch (AppInstaller/AppLauncher are implemented); the Android
+// adapter does not implement Optimizer.
 func (p *Platform) Capabilities() contract.CapabilitySet {
-	return contract.CapAll
+	return contract.CapabilitiesFor(p)
 }

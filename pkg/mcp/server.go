@@ -5,13 +5,19 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
+	"github.com/espetro/mcp-sim/internal/artifact"
 	"github.com/espetro/mcp-sim/internal/version"
 	"github.com/espetro/mcp-sim/pkg/contract"
 	"github.com/espetro/mcp-sim/pkg/orchestrator"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+// artifactRootsEnv is the env var listing artifact roots for install_app
+// artifact_ref resolution (colon-separated, "name=path" for named roots).
+const artifactRootsEnv = "MCPSIM_ARTIFACT_ROOTS"
 
 // Server wraps the MCP SDK server with mcp-sim tools.
 type Server struct {
@@ -165,6 +171,42 @@ func NewServer(orch *orchestrator.Orchestrator, logger *slog.Logger) *Server {
 			return nil, struct{ Success bool }{}, err
 		}
 		return nil, struct{ Success bool }{Success: true}, nil
+	})
+
+	// install_app
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "install_app",
+		Description: "Install an app on a device. artifact_ref is an absolute path, a path under MCPSIM_ARTIFACT_ROOTS, or an artifact://name/relative/path URI. iOS takes an .app bundle, Android an .apk.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in struct {
+		Platform    string `json:"platform"`
+		Target      string `json:"target"`
+		ArtifactRef string `json:"artifact_ref"`
+	}) (*mcp.CallToolResult, struct{ Success bool }, error) {
+		path, err := artifact.Resolve(in.ArtifactRef, artifact.LoadRoots(os.Getenv(artifactRootsEnv)))
+		if err != nil {
+			return nil, struct{ Success bool }{}, err
+		}
+		if err := orch.InstallApp(ctx, in.Platform, in.Target, path); err != nil {
+			return nil, struct{ Success bool }{}, err
+		}
+		return nil, struct{ Success bool }{Success: true}, nil
+	})
+
+	// launch_app
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "launch_app",
+		Description: "Launch an installed app by bundle identifier. Returns the process id when the platform reports one.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in struct {
+		Platform string `json:"platform"`
+		Target   string `json:"target"`
+		BundleID string `json:"bundle_id"`
+	}) (*mcp.CallToolResult, struct {
+		PID int `json:"pid"`
+	}, error) {
+		pid, err := orch.LaunchApp(ctx, in.Platform, in.Target, in.BundleID)
+		return nil, struct {
+			PID int `json:"pid"`
+		}{PID: pid}, err
 	})
 
 	// start_controller

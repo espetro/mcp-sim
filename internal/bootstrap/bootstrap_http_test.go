@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -20,7 +23,8 @@ import (
 const testToken = "test-bearer-token-0123456789abcdef"
 
 // fakePlatform is a minimal contract.Platform keeping the integration test
-// hermetic (no adb/xcrun binaries).
+// hermetic (no adb/xcrun binaries). Implements AppInstaller/AppLauncher so
+// the install_app/launch_app tools are exercised end to end.
 type fakePlatform struct{}
 
 func (fakePlatform) Name() string { return "testplat" }
@@ -45,7 +49,28 @@ func (fakePlatform) Wipe(context.Context, string) error { return nil }
 
 func (fakePlatform) OpenURL(context.Context, string, string) error { return nil }
 
-func (fakePlatform) Capabilities() contract.CapabilitySet { return contract.CapAll }
+func (fakePlatform) InstallApp(_ context.Context, target, artifactPath string) error {
+	if artifactPath != installedArtifact {
+		return fakeInstallError{artifactPath}
+	}
+	return nil
+}
+
+func (fakePlatform) LaunchApp(_ context.Context, target, bundleID string) (int, error) {
+	return 4242, nil
+}
+
+func (fakePlatform) Capabilities() contract.CapabilitySet {
+	return contract.CapabilitiesFor(fakePlatform{})
+}
+
+// installedArtifact is the only path the fake installer accepts; tests
+// point MCPSIM_ARTIFACT_ROOTS at a temp dir holding it.
+var installedArtifact string
+
+type fakeInstallError struct{ got string }
+
+func (e fakeInstallError) Error() string { return "fake install got unexpected artifact " + e.got }
 
 // hermeticConfig returns a Config with every platform and controller
 // disabled: BuildOrchestrator probes no binaries. Listen is ":0"; the
@@ -204,13 +229,13 @@ func TestStreamableHTTPAuthFlow(t *testing.T) {
 		t.Errorf("notifications/initialized: status = %d, want 202 or 200", notifResp.StatusCode)
 	}
 
-	// tools/list returns the full 11-tool surface; all tools register
+	// tools/list returns the full 13-tool surface; all tools register
 	// unconditionally regardless of which platforms were detected.
 	_, listResult := jsonRPCCall(t, client, jsonRPCRequest(t, mcpURL, sessionID, "tools/list", map[string]any{}))
 	tools := toolsByName(t, listResult)
 	wantTools := []string{
 		"await_ready", "boot_device", "controller_status", "get_state",
-		"list_devices", "open_url", "start_controller", "stop_controller",
+		"install_app", "launch_app", "list_devices", "open_url", "start_controller", "stop_controller",
 		"stop_device", "stream_info", "wipe_device",
 	}
 	if len(tools) != len(wantTools) {
@@ -234,6 +259,85 @@ func TestStreamableHTTPAuthFlow(t *testing.T) {
 	}
 	if structured["state"] != string(contract.DeviceStateStopped) {
 		t.Errorf("get_state state = %v, want %q", structured["state"], contract.DeviceStateStopped)
+	}
+}
+
+// TestInstallLaunchTools exercises the install_app and launch_app dispatch:
+// artifact_ref resolution through MCPSIM_ARTIFACT_ROOTS (relative, named,
+// and not-found forms) plus the pid round trip, all against the fake
+// platform.
+func TestInstallLaunchTools(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "app.apk"), []byte("apk"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("MCPSIM_ARTIFACT_ROOTS", dir+":named="+dir)
+	installedArtifact = filepath.Join(dir, "app.apk")
+	t.Cleanup(func() { installedArtifact = "" })
+
+	ts := startServer(t)
+	client := ts.Client()
+
+	// initialize handshake to obtain a session id (jsonRPCCall fatals on
+	// non-200, and notifications answer 202, so the handshake uses raw Do).
+	initResp, _ := jsonRPCCall(t, client, jsonRPCRequest(t, ts.URL+"/mcp", "", "initialize", map[string]any{
+		"protocolVersion": "2024-11-05",
+		"capabilities":    map[string]any{},
+		"clientInfo":      map[string]any{"name": "test", "version": "0"},
+	}))
+	defer func() { _ = initResp.Body.Close() }()
+	sessionID := initResp.Header.Get("Mcp-Session-Id")
+	notif := jsonRPCRequest(t, ts.URL+"/mcp", sessionID, "notifications/initialized", nil)
+	if resp, err := client.Do(notif); err != nil {
+		t.Fatalf("notifications/initialized: %v", err)
+	} else {
+		_ = resp.Body.Close()
+	}
+
+	call := func(t *testing.T, name string, args map[string]any) map[string]any {
+		t.Helper()
+		_, result := jsonRPCCall(t, client, jsonRPCRequest(t, ts.URL+"/mcp", sessionID, "tools/call", map[string]any{
+			"name": name, "arguments": args,
+		}))
+		return result
+	}
+
+	// install_app: relative ref resolves under the first root.
+	result := call(t, "install_app", map[string]any{
+		"platform": "testplat", "target": "dev-1", "artifact_ref": "app.apk",
+	})
+	if result["structuredContent"] == nil {
+		t.Errorf("install_app: missing structuredContent in %v", result)
+	}
+
+	// install_app: named artifact:// form.
+	result = call(t, "install_app", map[string]any{
+		"platform": "testplat", "target": "dev-1", "artifact_ref": "artifact://named/app.apk",
+	})
+	if result["structuredContent"] == nil {
+		t.Errorf("install_app artifact://: missing structuredContent in %v", result)
+	}
+
+	// install_app: unresolvable ref surfaces the resolver error.
+	result = call(t, "install_app", map[string]any{
+		"platform": "testplat", "target": "dev-1", "artifact_ref": "missing/thing.apk",
+	})
+	if isError, _ := result["isError"].(bool); !isError {
+		t.Errorf("install_app missing ref: want isError in result %v", result)
+	} else if content := fmt.Sprint(result["content"]); !strings.Contains(content, "did not resolve") {
+		t.Errorf("install_app missing ref: unexpected content %s", content)
+	}
+
+	// launch_app returns the fake platform's pid.
+	result = call(t, "launch_app", map[string]any{
+		"platform": "testplat", "target": "dev-1", "bundle_id": "com.example.hello",
+	})
+	structured, ok := result["structuredContent"].(map[string]any)
+	if !ok {
+		t.Fatalf("launch_app: missing structuredContent in %v", result)
+	}
+	if pid, _ := structured["pid"].(float64); int(pid) != 4242 {
+		t.Errorf("launch_app pid = %v, want 4242", structured["pid"])
 	}
 }
 
