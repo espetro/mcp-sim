@@ -11,4 +11,5 @@ MCP server for iOS Simulator and Android Emulator lifecycle management.
 - [Tailscale setup](tailscale.md) — running over Tailscale
 - [Running as a service](service.md) — install as a native OS service (launchd/systemd/Windows Service)
 - [Installing and launching apps](install.md) — install_app/launch_app, MCPSIM_ARTIFACT_ROOTS, artifact:// refs
+- [Verifier (device interaction)](verifier.md) — verifier_* tools, agent-device backend
 - [Adding a platform](adding-platform.md) — implementing the Platform interface
